@@ -1,13 +1,20 @@
 package models
 
-import "gorm.io/gorm"
+import (
+	"time"
+
+	"gorm.io/gorm"
+)
 
 type Task struct {
-	gorm.Model
+	ID        uint           `gorm:"primaryKey;autoIncrement" json:"id"`
+	CreatedAt time.Time      `json:"created_at"`
+	UpdatedAt time.Time      `json:"updated_at"`
+	DeletedAt gorm.DeletedAt `gorm:"index" json:"deleted_at"`
 
 	Title       string `gorm:"size:100;not null;uniqueIndex" json:"title"`
-	Description string `gorm:"size:255" json:"description"`
-	Done        bool   `gorm:"default:false" json:"done"`
-	UserID      uint   `gorm:"not null" json:"user_id"`
-	User        User   `gorm:"foreignKey:UserID" json:"user"`
+	Description string `gorm:"size:255"                     json:"description"`
+	Done        bool   `gorm:"default:false"                json:"done"`
+	UserID      uint   `gorm:"not null"                     json:"user_id"`
+	User        *User  `gorm:"foreignKey:UserID"            json:"user,omitempty"`
 }
