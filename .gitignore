@@ -1,5 +1,6 @@
 # Binaries
 tmp/
+api
 *.exe
 *.exe~
 *.dll

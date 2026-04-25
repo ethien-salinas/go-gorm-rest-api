@@ -1,0 +1,32 @@
+package config
+
+import "os"
+
+type Config struct {
+	DBHost     string
+	DBUser     string
+	DBPassword string
+	DBName     string
+	DBPort     string
+	DBSSLMode  string
+	Port       string
+}
+
+func Load() Config {
+	return Config{
+		DBHost:     os.Getenv("DB_HOST"),
+		DBUser:     os.Getenv("DB_USER"),
+		DBPassword: os.Getenv("DB_PASSWORD"),
+		DBName:     os.Getenv("DB_NAME"),
+		DBPort:     os.Getenv("DB_PORT"),
+		DBSSLMode:  os.Getenv("DB_SSLMODE"),
+		Port:       getEnvOrDefault("PORT", "3000"),
+	}
+}
+
+func getEnvOrDefault(key, defaultValue string) string {
+	if v := os.Getenv(key); v != "" {
+		return v
+	}
+	return defaultValue
+}

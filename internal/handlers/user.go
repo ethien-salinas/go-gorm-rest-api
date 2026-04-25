@@ -1,19 +1,26 @@
-package routes
+package handlers
 
 import (
 	"encoding/json"
 	"net/http"
 
-	"github.com/ethien-salinas/go-gorm-rest-api/db"
-	"github.com/ethien-salinas/go-gorm-rest-api/models"
+	"github.com/ethien-salinas/go-gorm-rest-api/internal/models"
+	"github.com/ethien-salinas/go-gorm-rest-api/internal/repository"
 	"github.com/gorilla/mux"
 )
 
-func GetUsersHandler(w http.ResponseWriter, r *http.Request) {
+type UserHandler struct {
+	repo *repository.UserRepository
+}
+
+func NewUserHandler(repo *repository.UserRepository) *UserHandler {
+	return &UserHandler{repo: repo}
+}
+
+func (h *UserHandler) GetAll(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("Content-Type", "application/json")
-	var users []models.User
-	result := db.DB.Preload("Tasks").Find(&users)
-	if result.Error != nil {
+	users, err := h.repo.FindAll()
+	if err != nil {
 		w.WriteHeader(http.StatusInternalServerError)
 		w.Write([]byte("error al obtener los usuarios"))
 		return
@@ -21,11 +28,11 @@ func GetUsersHandler(w http.ResponseWriter, r *http.Request) {
 	json.NewEncoder(w).Encode(users)
 }
 
-func GetUserHandler(w http.ResponseWriter, r *http.Request) {
+func (h *UserHandler) GetByID(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("Content-Type", "application/json")
 	params := mux.Vars(r)
-	var user models.User
-	if result := db.DB.Preload("Tasks").First(&user, params["id"]); result.Error != nil {
+	user, err := h.repo.FindByID(params["id"])
+	if err != nil {
 		w.WriteHeader(http.StatusNotFound)
 		w.Write([]byte("usuario no encontrado"))
 		return
@@ -33,7 +40,7 @@ func GetUserHandler(w http.ResponseWriter, r *http.Request) {
 	json.NewEncoder(w).Encode(user)
 }
 
-func PostUserHandler(w http.ResponseWriter, r *http.Request) {
+func (h *UserHandler) Create(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("Content-Type", "application/json")
 	r.Body = http.MaxBytesReader(w, r.Body, 1<<20)
 	var user models.User
@@ -42,7 +49,7 @@ func PostUserHandler(w http.ResponseWriter, r *http.Request) {
 		w.Write([]byte("error al decodificar el usuario"))
 		return
 	}
-	if result := db.DB.Create(&user); result.Error != nil {
+	if err := h.repo.Create(&user); err != nil {
 		w.WriteHeader(http.StatusInternalServerError)
 		w.Write([]byte("error al crear el usuario"))
 		return
@@ -50,12 +57,12 @@ func PostUserHandler(w http.ResponseWriter, r *http.Request) {
 	json.NewEncoder(w).Encode(user)
 }
 
-func UpdateUserHandler(w http.ResponseWriter, r *http.Request) {
+func (h *UserHandler) Update(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("Content-Type", "application/json")
 	r.Body = http.MaxBytesReader(w, r.Body, 1<<20)
 	params := mux.Vars(r)
-	var user models.User
-	if result := db.DB.First(&user, params["id"]); result.Error != nil {
+	user, err := h.repo.FindByID(params["id"])
+	if err != nil {
 		w.WriteHeader(http.StatusNotFound)
 		w.Write([]byte("usuario no encontrado"))
 		return
@@ -65,7 +72,7 @@ func UpdateUserHandler(w http.ResponseWriter, r *http.Request) {
 		w.Write([]byte("error al decodificar el usuario"))
 		return
 	}
-	if result := db.DB.Save(&user); result.Error != nil {
+	if err := h.repo.Update(&user); err != nil {
 		w.WriteHeader(http.StatusInternalServerError)
 		w.Write([]byte("error al actualizar el usuario"))
 		return
@@ -73,16 +80,16 @@ func UpdateUserHandler(w http.ResponseWriter, r *http.Request) {
 	json.NewEncoder(w).Encode(user)
 }
 
-func DeleteUserHandler(w http.ResponseWriter, r *http.Request) {
+func (h *UserHandler) Delete(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("Content-Type", "application/json")
 	params := mux.Vars(r)
-	var user models.User
-	if result := db.DB.First(&user, params["id"]); result.Error != nil {
+	user, err := h.repo.FindByID(params["id"])
+	if err != nil {
 		w.WriteHeader(http.StatusNotFound)
 		w.Write([]byte("usuario no encontrado"))
 		return
 	}
-	if result := db.DB.Delete(&user); result.Error != nil {
+	if err := h.repo.Delete(&user); err != nil {
 		w.WriteHeader(http.StatusInternalServerError)
 		w.Write([]byte("error al eliminar el usuario"))
 		return
