@@ -42,18 +42,21 @@ func main() {
 	r.Use(middleware.Logging(logger))
 
 	r.HandleFunc("/", handlers.HomeHandler).Methods("GET")
+	r.HandleFunc("/health", handlers.NewHealthHandler(db)).Methods("GET")
 
-	r.HandleFunc("/users", userHandler.GetAll).Methods("GET")
-	r.HandleFunc("/users/{id}", userHandler.GetByID).Methods("GET")
-	r.HandleFunc("/users", userHandler.Create).Methods("POST")
-	r.HandleFunc("/users/{id}", userHandler.Update).Methods("PUT")
-	r.HandleFunc("/users/{id}", userHandler.Delete).Methods("DELETE")
+	api := r.PathPrefix("/api/v1").Subrouter()
 
-	r.HandleFunc("/tasks", taskHandler.GetAll).Methods("GET")
-	r.HandleFunc("/tasks/{id}", taskHandler.GetByID).Methods("GET")
-	r.HandleFunc("/tasks", taskHandler.Create).Methods("POST")
-	r.HandleFunc("/tasks/{id}", taskHandler.Update).Methods("PUT")
-	r.HandleFunc("/tasks/{id}", taskHandler.Delete).Methods("DELETE")
+	api.HandleFunc("/users", userHandler.GetAll).Methods("GET")
+	api.HandleFunc("/users/{id}", userHandler.GetByID).Methods("GET")
+	api.HandleFunc("/users", userHandler.Create).Methods("POST")
+	api.HandleFunc("/users/{id}", userHandler.Update).Methods("PUT")
+	api.HandleFunc("/users/{id}", userHandler.Delete).Methods("DELETE")
+
+	api.HandleFunc("/tasks", taskHandler.GetAll).Methods("GET")
+	api.HandleFunc("/tasks/{id}", taskHandler.GetByID).Methods("GET")
+	api.HandleFunc("/tasks", taskHandler.Create).Methods("POST")
+	api.HandleFunc("/tasks/{id}", taskHandler.Update).Methods("PUT")
+	api.HandleFunc("/tasks/{id}", taskHandler.Delete).Methods("DELETE")
 
 	srv := &http.Server{
 		Addr:    ":" + cfg.Port,
