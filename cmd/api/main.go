@@ -28,7 +28,9 @@ func main() {
 
 	cfg := config.Load()
 	db := database.Connect(cfg, logger)
-	db.AutoMigrate(&models.User{}, &models.Task{})
+	if cfg.AutoMigrate {
+		db.AutoMigrate(&models.User{}, &models.Task{})
+	}
 
 	userRepo := repository.NewUserRepository(db, logger)
 	taskRepo := repository.NewTaskRepository(db, logger)
