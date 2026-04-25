@@ -18,13 +18,20 @@ type apiInfo struct {
 }
 
 // HomeHandler returns a JSON response with general information about the API.
+//
+//	@Summary		Información de la API
+//	@Description	Retorna metadatos generales de la API y enlace a la documentación.
+//	@Tags			general
+//	@Produce		json
+//	@Success		200	{object}	apiInfo
+//	@Router			/ [get]
 func HomeHandler(w http.ResponseWriter, r *http.Request) {
 	info := apiInfo{
 		Name:    "Go GORM REST API",
 		Version: "v1.0.0",
 		Status:  "ok",
 		Message: "Welcome! The API is up and running. Please refer to the documentation for available endpoints.",
-		Docs:    "/api/v1",
+		Docs:    "/swagger/index.html",
 		Time:    time.Now().UTC().Format(time.RFC3339),
 	}
 

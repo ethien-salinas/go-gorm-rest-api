@@ -1,0 +1,413 @@
+basePath: /
+definitions:
+  github_com_ethien-salinas_go-gorm-rest-api_internal_models.Task:
+    properties:
+      created_at:
+        type: string
+      deleted_at:
+        $ref: '#/definitions/gorm.DeletedAt'
+      description:
+        type: string
+      done:
+        type: boolean
+      id:
+        type: integer
+      title:
+        type: string
+      updated_at:
+        type: string
+      user:
+        $ref: '#/definitions/github_com_ethien-salinas_go-gorm-rest-api_internal_models.User'
+      user_id:
+        type: integer
+    type: object
+  github_com_ethien-salinas_go-gorm-rest-api_internal_models.User:
+    properties:
+      created_at:
+        type: string
+      deleted_at:
+        $ref: '#/definitions/gorm.DeletedAt'
+      email:
+        type: string
+      first_name:
+        type: string
+      id:
+        type: integer
+      last_name:
+        type: string
+      tasks:
+        items:
+          $ref: '#/definitions/github_com_ethien-salinas_go-gorm-rest-api_internal_models.Task'
+        type: array
+      updated_at:
+        type: string
+    type: object
+  gorm.DeletedAt:
+    properties:
+      time:
+        type: string
+      valid:
+        description: Valid is true if Time is not NULL
+        type: boolean
+    type: object
+  internal_handlers.CreateTaskRequest:
+    properties:
+      description:
+        type: string
+      done:
+        type: boolean
+      title:
+        type: string
+      user_id:
+        type: integer
+    type: object
+  internal_handlers.CreateUserRequest:
+    properties:
+      email:
+        type: string
+      first_name:
+        type: string
+      last_name:
+        type: string
+    type: object
+  internal_handlers.ErrorResponse:
+    properties:
+      error:
+        type: string
+    type: object
+  internal_handlers.UpdateTaskRequest:
+    properties:
+      description:
+        type: string
+      done:
+        type: boolean
+      title:
+        type: string
+    type: object
+  internal_handlers.UpdateUserRequest:
+    properties:
+      email:
+        type: string
+      first_name:
+        type: string
+      last_name:
+        type: string
+    type: object
+  internal_handlers.apiInfo:
+    properties:
+      docs:
+        type: string
+      message:
+        type: string
+      name:
+        type: string
+      status:
+        type: string
+      timestamp:
+        type: string
+      version:
+        type: string
+    type: object
+host: localhost:3000
+info:
+  contact:
+    name: Ethien Salinas
+  description: API REST para gestionar usuarios y tareas.
+  title: Go GORM REST API
+  version: "1.0"
+paths:
+  /:
+    get:
+      description: Retorna metadatos generales de la API y enlace a la documentación.
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/internal_handlers.apiInfo'
+      summary: Información de la API
+      tags:
+      - general
+  /api/v1/tasks:
+    get:
+      description: Retorna todas las tareas activas con su usuario asociado.
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            items:
+              $ref: '#/definitions/github_com_ethien-salinas_go-gorm-rest-api_internal_models.Task'
+            type: array
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/internal_handlers.ErrorResponse'
+      summary: Listar tareas
+      tags:
+      - tasks
+    post:
+      consumes:
+      - application/json
+      description: Crea una nueva tarea con los datos del body.
+      parameters:
+      - description: Datos de la tarea
+        in: body
+        name: task
+        required: true
+        schema:
+          $ref: '#/definitions/internal_handlers.CreateTaskRequest'
+      produces:
+      - application/json
+      responses:
+        "201":
+          description: Created
+          schema:
+            $ref: '#/definitions/github_com_ethien-salinas_go-gorm-rest-api_internal_models.Task'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/internal_handlers.ErrorResponse'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/internal_handlers.ErrorResponse'
+      summary: Crear tarea
+      tags:
+      - tasks
+  /api/v1/tasks/{id}:
+    delete:
+      description: Realiza un soft-delete de la tarea identificada por {id}.
+      parameters:
+      - description: ID de la tarea
+        in: path
+        name: id
+        required: true
+        type: integer
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/github_com_ethien-salinas_go-gorm-rest-api_internal_models.Task'
+        "404":
+          description: Not Found
+          schema:
+            $ref: '#/definitions/internal_handlers.ErrorResponse'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/internal_handlers.ErrorResponse'
+      summary: Eliminar tarea
+      tags:
+      - tasks
+    get:
+      description: Retorna una tarea por su ID, incluyendo el usuario asociado.
+      parameters:
+      - description: ID de la tarea
+        in: path
+        name: id
+        required: true
+        type: integer
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/github_com_ethien-salinas_go-gorm-rest-api_internal_models.Task'
+        "404":
+          description: Not Found
+          schema:
+            $ref: '#/definitions/internal_handlers.ErrorResponse'
+      summary: Obtener tarea por ID
+      tags:
+      - tasks
+    put:
+      consumes:
+      - application/json
+      description: Reemplaza los campos de la tarea identificada por {id}.
+      parameters:
+      - description: ID de la tarea
+        in: path
+        name: id
+        required: true
+        type: integer
+      - description: Nuevos datos de la tarea
+        in: body
+        name: task
+        required: true
+        schema:
+          $ref: '#/definitions/internal_handlers.UpdateTaskRequest'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/github_com_ethien-salinas_go-gorm-rest-api_internal_models.Task'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/internal_handlers.ErrorResponse'
+        "404":
+          description: Not Found
+          schema:
+            $ref: '#/definitions/internal_handlers.ErrorResponse'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/internal_handlers.ErrorResponse'
+      summary: Actualizar tarea
+      tags:
+      - tasks
+  /api/v1/users:
+    get:
+      description: Retorna todos los usuarios activos.
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            items:
+              $ref: '#/definitions/github_com_ethien-salinas_go-gorm-rest-api_internal_models.User'
+            type: array
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/internal_handlers.ErrorResponse'
+      summary: Listar usuarios
+      tags:
+      - users
+    post:
+      consumes:
+      - application/json
+      description: Crea un nuevo usuario con los datos del body.
+      parameters:
+      - description: Datos del usuario
+        in: body
+        name: user
+        required: true
+        schema:
+          $ref: '#/definitions/internal_handlers.CreateUserRequest'
+      produces:
+      - application/json
+      responses:
+        "201":
+          description: Created
+          schema:
+            $ref: '#/definitions/github_com_ethien-salinas_go-gorm-rest-api_internal_models.User'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/internal_handlers.ErrorResponse'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/internal_handlers.ErrorResponse'
+      summary: Crear usuario
+      tags:
+      - users
+  /api/v1/users/{id}:
+    delete:
+      description: Realiza un soft-delete del usuario identificado por {id}.
+      parameters:
+      - description: ID del usuario
+        in: path
+        name: id
+        required: true
+        type: integer
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/github_com_ethien-salinas_go-gorm-rest-api_internal_models.User'
+        "404":
+          description: Not Found
+          schema:
+            $ref: '#/definitions/internal_handlers.ErrorResponse'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/internal_handlers.ErrorResponse'
+      summary: Eliminar usuario
+      tags:
+      - users
+    get:
+      description: Retorna un usuario por su ID.
+      parameters:
+      - description: ID del usuario
+        in: path
+        name: id
+        required: true
+        type: integer
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/github_com_ethien-salinas_go-gorm-rest-api_internal_models.User'
+        "404":
+          description: Not Found
+          schema:
+            $ref: '#/definitions/internal_handlers.ErrorResponse'
+      summary: Obtener usuario por ID
+      tags:
+      - users
+    put:
+      consumes:
+      - application/json
+      description: Reemplaza los campos del usuario identificado por {id}.
+      parameters:
+      - description: ID del usuario
+        in: path
+        name: id
+        required: true
+        type: integer
+      - description: Nuevos datos del usuario
+        in: body
+        name: user
+        required: true
+        schema:
+          $ref: '#/definitions/internal_handlers.UpdateUserRequest'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/github_com_ethien-salinas_go-gorm-rest-api_internal_models.User'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/internal_handlers.ErrorResponse'
+        "404":
+          description: Not Found
+          schema:
+            $ref: '#/definitions/internal_handlers.ErrorResponse'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/internal_handlers.ErrorResponse'
+      summary: Actualizar usuario
+      tags:
+      - users
+  /health:
+    get:
+      description: Responde 200 si la base de datos está accesible, 503 si no.
+      responses:
+        "200":
+          description: OK
+        "503":
+          description: Service Unavailable
+      summary: Health check
+      tags:
+      - general
+swagger: "2.0"

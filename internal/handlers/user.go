@@ -31,6 +31,14 @@ func NewUserHandler(repo UserRepository, logger *slog.Logger) *UserHandler {
 }
 
 // GetAll writes a JSON array of all users to the response.
+//
+//	@Summary		Listar usuarios
+//	@Description	Retorna todos los usuarios activos.
+//	@Tags			users
+//	@Produce		json
+//	@Success		200	{array}		models.User
+//	@Failure		500	{object}	ErrorResponse
+//	@Router			/api/v1/users [get]
 func (h *UserHandler) GetAll(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("Content-Type", "application/json")
 	users, err := h.repo.FindAll(r.Context())
@@ -43,6 +51,15 @@ func (h *UserHandler) GetAll(w http.ResponseWriter, r *http.Request) {
 }
 
 // GetByID writes the user identified by the route parameter {id} to the response.
+//
+//	@Summary		Obtener usuario por ID
+//	@Description	Retorna un usuario por su ID.
+//	@Tags			users
+//	@Produce		json
+//	@Param			id	path		int	true	"ID del usuario"
+//	@Success		200	{object}	models.User
+//	@Failure		404	{object}	ErrorResponse
+//	@Router			/api/v1/users/{id} [get]
 func (h *UserHandler) GetByID(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("Content-Type", "application/json")
 	params := mux.Vars(r)
@@ -55,23 +72,36 @@ func (h *UserHandler) GetByID(w http.ResponseWriter, r *http.Request) {
 	json.NewEncoder(w).Encode(user)
 }
 
-type createUserRequest struct {
+// CreateUserRequest holds the fields accepted when creating a new user.
+type CreateUserRequest struct {
 	FirstName string `json:"first_name"`
 	LastName  string `json:"last_name"`
 	Email     string `json:"email"`
 }
 
-type updateUserRequest struct {
+// UpdateUserRequest holds the fields accepted when updating an existing user.
+type UpdateUserRequest struct {
 	FirstName string `json:"first_name"`
 	LastName  string `json:"last_name"`
 	Email     string `json:"email"`
 }
 
 // Create decodes a user from the request body and persists it, responding 201 on success.
+//
+//	@Summary		Crear usuario
+//	@Description	Crea un nuevo usuario con los datos del body.
+//	@Tags			users
+//	@Accept			json
+//	@Produce		json
+//	@Param			user	body		CreateUserRequest	true	"Datos del usuario"
+//	@Success		201		{object}	models.User
+//	@Failure		400		{object}	ErrorResponse
+//	@Failure		500		{object}	ErrorResponse
+//	@Router			/api/v1/users [post]
 func (h *UserHandler) Create(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("Content-Type", "application/json")
 	r.Body = http.MaxBytesReader(w, r.Body, 1<<20)
-	var req createUserRequest
+	var req CreateUserRequest
 	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
 		h.logger.Warn("handler: failed to decode user", "error", err)
 		writeError(w, http.StatusBadRequest, "error al decodificar el usuario")
@@ -89,6 +119,19 @@ func (h *UserHandler) Create(w http.ResponseWriter, r *http.Request) {
 }
 
 // Update replaces the fields of the user identified by {id} with the values from the request body.
+//
+//	@Summary		Actualizar usuario
+//	@Description	Reemplaza los campos del usuario identificado por {id}.
+//	@Tags			users
+//	@Accept			json
+//	@Produce		json
+//	@Param			id		path		int					true	"ID del usuario"
+//	@Param			user	body		UpdateUserRequest	true	"Nuevos datos del usuario"
+//	@Success		200		{object}	models.User
+//	@Failure		400		{object}	ErrorResponse
+//	@Failure		404		{object}	ErrorResponse
+//	@Failure		500		{object}	ErrorResponse
+//	@Router			/api/v1/users/{id} [put]
 func (h *UserHandler) Update(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("Content-Type", "application/json")
 	r.Body = http.MaxBytesReader(w, r.Body, 1<<20)
@@ -99,7 +142,7 @@ func (h *UserHandler) Update(w http.ResponseWriter, r *http.Request) {
 		writeError(w, http.StatusNotFound, "usuario no encontrado")
 		return
 	}
-	var req updateUserRequest
+	var req UpdateUserRequest
 	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
 		h.logger.Warn("handler: failed to decode user", "error", err)
 		writeError(w, http.StatusBadRequest, "error al decodificar el usuario")
@@ -118,6 +161,16 @@ func (h *UserHandler) Update(w http.ResponseWriter, r *http.Request) {
 }
 
 // Delete soft-deletes the user identified by {id}.
+//
+//	@Summary		Eliminar usuario
+//	@Description	Realiza un soft-delete del usuario identificado por {id}.
+//	@Tags			users
+//	@Produce		json
+//	@Param			id	path		int	true	"ID del usuario"
+//	@Success		200	{object}	models.User
+//	@Failure		404	{object}	ErrorResponse
+//	@Failure		500	{object}	ErrorResponse
+//	@Router			/api/v1/users/{id} [delete]
 func (h *UserHandler) Delete(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("Content-Type", "application/json")
 	params := mux.Vars(r)

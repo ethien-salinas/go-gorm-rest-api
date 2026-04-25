@@ -1,4 +1,11 @@
 // Command api starts the HTTP server for the Go GORM REST API.
+//
+//	@title			Go GORM REST API
+//	@version		1.0
+//	@description	API REST para gestionar usuarios y tareas.
+//	@contact.name	Ethien Salinas
+//	@host			localhost:3000
+//	@BasePath		/
 package main
 
 import (
@@ -10,6 +17,7 @@ import (
 	"syscall"
 	"time"
 
+	_ "github.com/ethien-salinas/go-gorm-rest-api/docs"
 	"github.com/ethien-salinas/go-gorm-rest-api/internal/config"
 	"github.com/ethien-salinas/go-gorm-rest-api/internal/database"
 	"github.com/ethien-salinas/go-gorm-rest-api/internal/handlers"
@@ -18,6 +26,7 @@ import (
 	"github.com/ethien-salinas/go-gorm-rest-api/internal/repository"
 	"github.com/gorilla/mux"
 	"github.com/joho/godotenv"
+	httpswagger "github.com/swaggo/http-swagger"
 )
 
 func main() {
@@ -48,6 +57,7 @@ func main() {
 	r := mux.NewRouter()
 	r.Use(middleware.Logging(logger))
 
+	r.PathPrefix("/swagger/").Handler(httpswagger.WrapHandler)
 	r.HandleFunc("/", handlers.HomeHandler).Methods("GET")
 	r.HandleFunc("/health", handlers.NewHealthHandler(sqlDB)).Methods("GET")
 

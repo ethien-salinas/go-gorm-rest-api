@@ -31,6 +31,14 @@ func NewTaskHandler(repo TaskRepository, logger *slog.Logger) *TaskHandler {
 }
 
 // GetAll writes a JSON array of all tasks to the response.
+//
+//	@Summary		Listar tareas
+//	@Description	Retorna todas las tareas activas con su usuario asociado.
+//	@Tags			tasks
+//	@Produce		json
+//	@Success		200	{array}		models.Task
+//	@Failure		500	{object}	ErrorResponse
+//	@Router			/api/v1/tasks [get]
 func (h *TaskHandler) GetAll(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("Content-Type", "application/json")
 	tasks, err := h.repo.FindAll(r.Context())
@@ -43,6 +51,15 @@ func (h *TaskHandler) GetAll(w http.ResponseWriter, r *http.Request) {
 }
 
 // GetByID writes the task identified by the route parameter {id} to the response.
+//
+//	@Summary		Obtener tarea por ID
+//	@Description	Retorna una tarea por su ID, incluyendo el usuario asociado.
+//	@Tags			tasks
+//	@Produce		json
+//	@Param			id	path		int	true	"ID de la tarea"
+//	@Success		200	{object}	models.Task
+//	@Failure		404	{object}	ErrorResponse
+//	@Router			/api/v1/tasks/{id} [get]
 func (h *TaskHandler) GetByID(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("Content-Type", "application/json")
 	params := mux.Vars(r)
@@ -55,24 +72,37 @@ func (h *TaskHandler) GetByID(w http.ResponseWriter, r *http.Request) {
 	json.NewEncoder(w).Encode(task)
 }
 
-type createTaskRequest struct {
+// CreateTaskRequest holds the fields accepted when creating a new task.
+type CreateTaskRequest struct {
 	Title       string `json:"title"`
 	Description string `json:"description"`
 	Done        bool   `json:"done"`
 	UserID      uint   `json:"user_id"`
 }
 
-type updateTaskRequest struct {
+// UpdateTaskRequest holds the fields accepted when updating an existing task.
+type UpdateTaskRequest struct {
 	Title       string `json:"title"`
 	Description string `json:"description"`
 	Done        bool   `json:"done"`
 }
 
 // Create decodes a task from the request body and persists it, responding 201 on success.
+//
+//	@Summary		Crear tarea
+//	@Description	Crea una nueva tarea con los datos del body.
+//	@Tags			tasks
+//	@Accept			json
+//	@Produce		json
+//	@Param			task	body		CreateTaskRequest	true	"Datos de la tarea"
+//	@Success		201		{object}	models.Task
+//	@Failure		400		{object}	ErrorResponse
+//	@Failure		500		{object}	ErrorResponse
+//	@Router			/api/v1/tasks [post]
 func (h *TaskHandler) Create(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("Content-Type", "application/json")
 	r.Body = http.MaxBytesReader(w, r.Body, 1<<20)
-	var req createTaskRequest
+	var req CreateTaskRequest
 	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
 		h.logger.Warn("handler: failed to decode task", "error", err)
 		writeError(w, http.StatusBadRequest, "error al decodificar la tarea")
@@ -90,6 +120,19 @@ func (h *TaskHandler) Create(w http.ResponseWriter, r *http.Request) {
 }
 
 // Update replaces the fields of the task identified by {id} with the values from the request body.
+//
+//	@Summary		Actualizar tarea
+//	@Description	Reemplaza los campos de la tarea identificada por {id}.
+//	@Tags			tasks
+//	@Accept			json
+//	@Produce		json
+//	@Param			id		path		int					true	"ID de la tarea"
+//	@Param			task	body		UpdateTaskRequest	true	"Nuevos datos de la tarea"
+//	@Success		200		{object}	models.Task
+//	@Failure		400		{object}	ErrorResponse
+//	@Failure		404		{object}	ErrorResponse
+//	@Failure		500		{object}	ErrorResponse
+//	@Router			/api/v1/tasks/{id} [put]
 func (h *TaskHandler) Update(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("Content-Type", "application/json")
 	r.Body = http.MaxBytesReader(w, r.Body, 1<<20)
@@ -100,7 +143,7 @@ func (h *TaskHandler) Update(w http.ResponseWriter, r *http.Request) {
 		writeError(w, http.StatusNotFound, "tarea no encontrada")
 		return
 	}
-	var req updateTaskRequest
+	var req UpdateTaskRequest
 	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
 		h.logger.Warn("handler: failed to decode task", "error", err)
 		writeError(w, http.StatusBadRequest, "error al decodificar la tarea")
@@ -119,6 +162,16 @@ func (h *TaskHandler) Update(w http.ResponseWriter, r *http.Request) {
 }
 
 // Delete soft-deletes the task identified by {id}.
+//
+//	@Summary		Eliminar tarea
+//	@Description	Realiza un soft-delete de la tarea identificada por {id}.
+//	@Tags			tasks
+//	@Produce		json
+//	@Param			id	path		int	true	"ID de la tarea"
+//	@Success		200	{object}	models.Task
+//	@Failure		404	{object}	ErrorResponse
+//	@Failure		500	{object}	ErrorResponse
+//	@Router			/api/v1/tasks/{id} [delete]
 func (h *TaskHandler) Delete(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("Content-Type", "application/json")
 	params := mux.Vars(r)
