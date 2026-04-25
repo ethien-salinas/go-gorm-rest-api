@@ -32,8 +32,7 @@ func (h *UserHandler) GetAll(w http.ResponseWriter, r *http.Request) {
 	users, err := h.repo.FindAll(r.Context())
 	if err != nil {
 		h.logger.Error("handler: failed to get users", "error", err)
-		w.WriteHeader(http.StatusInternalServerError)
-		w.Write([]byte("error al obtener los usuarios"))
+		writeError(w, http.StatusInternalServerError, "error al obtener los usuarios")
 		return
 	}
 	json.NewEncoder(w).Encode(users)
@@ -45,8 +44,7 @@ func (h *UserHandler) GetByID(w http.ResponseWriter, r *http.Request) {
 	user, err := h.repo.FindByID(r.Context(), params["id"])
 	if err != nil {
 		h.logger.Warn("handler: user not found", "id", params["id"])
-		w.WriteHeader(http.StatusNotFound)
-		w.Write([]byte("usuario no encontrado"))
+		writeError(w, http.StatusNotFound, "usuario no encontrado")
 		return
 	}
 	json.NewEncoder(w).Encode(user)
@@ -70,15 +68,13 @@ func (h *UserHandler) Create(w http.ResponseWriter, r *http.Request) {
 	var req createUserRequest
 	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
 		h.logger.Warn("handler: failed to decode user", "error", err)
-		w.WriteHeader(http.StatusBadRequest)
-		w.Write([]byte("error al decodificar el usuario"))
+		writeError(w, http.StatusBadRequest, "error al decodificar el usuario")
 		return
 	}
 	user := models.User{FirstName: req.FirstName, LastName: req.LastName, Email: req.Email}
 	if err := h.repo.Create(r.Context(), &user); err != nil {
 		h.logger.Error("handler: failed to create user", "error", err)
-		w.WriteHeader(http.StatusInternalServerError)
-		w.Write([]byte("error al crear el usuario"))
+		writeError(w, http.StatusInternalServerError, "error al crear el usuario")
 		return
 	}
 	h.logger.Info("user created", "id", user.ID)
@@ -93,15 +89,13 @@ func (h *UserHandler) Update(w http.ResponseWriter, r *http.Request) {
 	user, err := h.repo.FindByID(r.Context(), params["id"])
 	if err != nil {
 		h.logger.Warn("handler: user not found for update", "id", params["id"])
-		w.WriteHeader(http.StatusNotFound)
-		w.Write([]byte("usuario no encontrado"))
+		writeError(w, http.StatusNotFound, "usuario no encontrado")
 		return
 	}
 	var req updateUserRequest
 	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
 		h.logger.Warn("handler: failed to decode user", "error", err)
-		w.WriteHeader(http.StatusBadRequest)
-		w.Write([]byte("error al decodificar el usuario"))
+		writeError(w, http.StatusBadRequest, "error al decodificar el usuario")
 		return
 	}
 	user.FirstName = req.FirstName
@@ -109,8 +103,7 @@ func (h *UserHandler) Update(w http.ResponseWriter, r *http.Request) {
 	user.Email = req.Email
 	if err := h.repo.Update(r.Context(), &user); err != nil {
 		h.logger.Error("handler: failed to update user", "id", user.ID, "error", err)
-		w.WriteHeader(http.StatusInternalServerError)
-		w.Write([]byte("error al actualizar el usuario"))
+		writeError(w, http.StatusInternalServerError, "error al actualizar el usuario")
 		return
 	}
 	h.logger.Info("user updated", "id", user.ID)
@@ -123,14 +116,12 @@ func (h *UserHandler) Delete(w http.ResponseWriter, r *http.Request) {
 	user, err := h.repo.FindByID(r.Context(), params["id"])
 	if err != nil {
 		h.logger.Warn("handler: user not found for delete", "id", params["id"])
-		w.WriteHeader(http.StatusNotFound)
-		w.Write([]byte("usuario no encontrado"))
+		writeError(w, http.StatusNotFound, "usuario no encontrado")
 		return
 	}
 	if err := h.repo.Delete(r.Context(), &user); err != nil {
 		h.logger.Error("handler: failed to delete user", "id", user.ID, "error", err)
-		w.WriteHeader(http.StatusInternalServerError)
-		w.Write([]byte("error al eliminar el usuario"))
+		writeError(w, http.StatusInternalServerError, "error al eliminar el usuario")
 		return
 	}
 	h.logger.Info("user deleted", "id", user.ID)

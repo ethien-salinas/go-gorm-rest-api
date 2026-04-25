@@ -32,8 +32,7 @@ func (h *TaskHandler) GetAll(w http.ResponseWriter, r *http.Request) {
 	tasks, err := h.repo.FindAll(r.Context())
 	if err != nil {
 		h.logger.Error("handler: failed to get tasks", "error", err)
-		w.WriteHeader(http.StatusInternalServerError)
-		w.Write([]byte("error al obtener las tareas"))
+		writeError(w, http.StatusInternalServerError, "error al obtener las tareas")
 		return
 	}
 	json.NewEncoder(w).Encode(tasks)
@@ -45,8 +44,7 @@ func (h *TaskHandler) GetByID(w http.ResponseWriter, r *http.Request) {
 	task, err := h.repo.FindByID(r.Context(), params["id"])
 	if err != nil {
 		h.logger.Warn("handler: task not found", "id", params["id"])
-		w.WriteHeader(http.StatusNotFound)
-		w.Write([]byte("tarea no encontrada"))
+		writeError(w, http.StatusNotFound, "tarea no encontrada")
 		return
 	}
 	json.NewEncoder(w).Encode(task)
@@ -71,15 +69,13 @@ func (h *TaskHandler) Create(w http.ResponseWriter, r *http.Request) {
 	var req createTaskRequest
 	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
 		h.logger.Warn("handler: failed to decode task", "error", err)
-		w.WriteHeader(http.StatusBadRequest)
-		w.Write([]byte("error al decodificar la tarea"))
+		writeError(w, http.StatusBadRequest, "error al decodificar la tarea")
 		return
 	}
 	task := models.Task{Title: req.Title, Description: req.Description, Done: req.Done, UserID: req.UserID}
 	if err := h.repo.Create(r.Context(), &task); err != nil {
 		h.logger.Error("handler: failed to create task", "error", err)
-		w.WriteHeader(http.StatusInternalServerError)
-		w.Write([]byte("error al crear la tarea"))
+		writeError(w, http.StatusInternalServerError, "error al crear la tarea")
 		return
 	}
 	h.logger.Info("task created", "id", task.ID)
@@ -94,15 +90,13 @@ func (h *TaskHandler) Update(w http.ResponseWriter, r *http.Request) {
 	task, err := h.repo.FindByID(r.Context(), params["id"])
 	if err != nil {
 		h.logger.Warn("handler: task not found for update", "id", params["id"])
-		w.WriteHeader(http.StatusNotFound)
-		w.Write([]byte("tarea no encontrada"))
+		writeError(w, http.StatusNotFound, "tarea no encontrada")
 		return
 	}
 	var req updateTaskRequest
 	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
 		h.logger.Warn("handler: failed to decode task", "error", err)
-		w.WriteHeader(http.StatusBadRequest)
-		w.Write([]byte("error al decodificar la tarea"))
+		writeError(w, http.StatusBadRequest, "error al decodificar la tarea")
 		return
 	}
 	task.Title = req.Title
@@ -110,8 +104,7 @@ func (h *TaskHandler) Update(w http.ResponseWriter, r *http.Request) {
 	task.Done = req.Done
 	if err := h.repo.Update(r.Context(), &task); err != nil {
 		h.logger.Error("handler: failed to update task", "id", task.ID, "error", err)
-		w.WriteHeader(http.StatusInternalServerError)
-		w.Write([]byte("error al actualizar la tarea"))
+		writeError(w, http.StatusInternalServerError, "error al actualizar la tarea")
 		return
 	}
 	h.logger.Info("task updated", "id", task.ID)
@@ -124,14 +117,12 @@ func (h *TaskHandler) Delete(w http.ResponseWriter, r *http.Request) {
 	task, err := h.repo.FindByID(r.Context(), params["id"])
 	if err != nil {
 		h.logger.Warn("handler: task not found for delete", "id", params["id"])
-		w.WriteHeader(http.StatusNotFound)
-		w.Write([]byte("tarea no encontrada"))
+		writeError(w, http.StatusNotFound, "tarea no encontrada")
 		return
 	}
 	if err := h.repo.Delete(r.Context(), &task); err != nil {
 		h.logger.Error("handler: failed to delete task", "id", task.ID, "error", err)
-		w.WriteHeader(http.StatusInternalServerError)
-		w.Write([]byte("error al eliminar la tarea"))
+		writeError(w, http.StatusInternalServerError, "error al eliminar la tarea")
 		return
 	}
 	h.logger.Info("task deleted", "id", task.ID)
