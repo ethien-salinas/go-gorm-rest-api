@@ -1,6 +1,8 @@
 package repository
 
 import (
+	"context"
+	"fmt"
 	"log/slog"
 
 	"github.com/ethien-salinas/go-gorm-rest-api/internal/models"
@@ -16,44 +18,44 @@ func NewTaskRepository(db *gorm.DB, logger *slog.Logger) *TaskRepository {
 	return &TaskRepository{db: db, logger: logger}
 }
 
-func (r *TaskRepository) FindAll() ([]models.Task, error) {
+func (r *TaskRepository) FindAll(ctx context.Context) ([]models.Task, error) {
 	var tasks []models.Task
-	err := r.db.Preload("User").Find(&tasks).Error
-	if err != nil {
+	if err := r.db.WithContext(ctx).Preload("User").Find(&tasks).Error; err != nil {
 		r.logger.Error("repository: failed to find all tasks", "error", err)
+		return nil, fmt.Errorf("taskRepository.FindAll: %w", err)
 	}
-	return tasks, err
+	return tasks, nil
 }
 
-func (r *TaskRepository) FindByID(id string) (models.Task, error) {
+func (r *TaskRepository) FindByID(ctx context.Context, id string) (models.Task, error) {
 	var task models.Task
-	err := r.db.Preload("User").First(&task, id).Error
-	if err != nil {
+	if err := r.db.WithContext(ctx).Preload("User").First(&task, id).Error; err != nil {
 		r.logger.Error("repository: failed to find task", "id", id, "error", err)
+		return models.Task{}, fmt.Errorf("taskRepository.FindByID: %w", err)
 	}
-	return task, err
+	return task, nil
 }
 
-func (r *TaskRepository) Create(task *models.Task) error {
-	err := r.db.Create(task).Error
-	if err != nil {
+func (r *TaskRepository) Create(ctx context.Context, task *models.Task) error {
+	if err := r.db.WithContext(ctx).Create(task).Error; err != nil {
 		r.logger.Error("repository: failed to create task", "error", err)
+		return fmt.Errorf("taskRepository.Create: %w", err)
 	}
-	return err
+	return nil
 }
 
-func (r *TaskRepository) Update(task *models.Task) error {
-	err := r.db.Save(task).Error
-	if err != nil {
+func (r *TaskRepository) Update(ctx context.Context, task *models.Task) error {
+	if err := r.db.WithContext(ctx).Save(task).Error; err != nil {
 		r.logger.Error("repository: failed to update task", "id", task.ID, "error", err)
+		return fmt.Errorf("taskRepository.Update: %w", err)
 	}
-	return err
+	return nil
 }
 
-func (r *TaskRepository) Delete(task *models.Task) error {
-	err := r.db.Delete(task).Error
-	if err != nil {
+func (r *TaskRepository) Delete(ctx context.Context, task *models.Task) error {
+	if err := r.db.WithContext(ctx).Delete(task).Error; err != nil {
 		r.logger.Error("repository: failed to delete task", "id", task.ID, "error", err)
+		return fmt.Errorf("taskRepository.Delete: %w", err)
 	}
-	return err
+	return nil
 }
