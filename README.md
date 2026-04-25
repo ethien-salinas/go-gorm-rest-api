@@ -11,6 +11,7 @@ REST API construida con Go como proyecto de aprendizaje. Implementa un CRUD de u
 - **Docker Compose** — levanta la base de datos y Adminer localmente
 - **[Air](https://github.com/air-verse/air)** — hot reload en desarrollo
 - **log/slog** — logging estructurado en JSON (stdlib de Go 1.21)
+- **[testify](https://github.com/stretchr/testify)** — aserciones en tests unitarios
 
 ## Requisitos
 
@@ -47,6 +48,26 @@ go run ./cmd/api
 El servidor corre en `http://localhost:3000`.
 
 Adminer (cliente web de PostgreSQL) disponible en `http://localhost:8080`.
+
+## Tests
+
+```bash
+# Correr todos los tests
+go test ./...
+
+# Con salida verbose y cobertura por paquete
+go test -v -cover ./...
+```
+
+Los tests son unitarios puros — no requieren base de datos ni servidor levantado.
+
+| Paquete | Cobertura |
+|---|---|
+| `internal/handlers` | 100 % |
+| `internal/config` | 100 % |
+| `internal/middleware` | 100 % |
+
+Los handlers definen sus propias interfaces de repositorio, lo que permite crear mocks con structs de campos funcionales sin herramientas de generación. El health handler usa una interfaz `Pinger` que `*sql.DB` satisface de forma nativa, eliminando la dependencia de `*gorm.DB` en los tests.
 
 ## Variables de entorno
 
@@ -138,4 +159,5 @@ internal/middleware/      → middleware de logging estructurado (log/slog)
 - El body de las peticiones está limitado a 1 MB con `http.MaxBytesReader`.
 - El servidor aplica graceful shutdown con timeout de 5 s al recibir `SIGINT`/`SIGTERM`.
 - `AUTO_MIGRATE=true` activa la migración automática; en producción se deja en `false`.
+- La interfaz `Pinger` en `handlers/health.go` desacopla el health check de `*gorm.DB`; `*sql.DB` la satisface de forma nativa y permite testar el endpoint sin base de datos real.
 - Todos los paquetes exportados siguen las convenciones de documentación de [go.dev/doc/comment](https://go.dev/doc/comment).
