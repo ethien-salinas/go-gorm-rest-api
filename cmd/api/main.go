@@ -23,7 +23,7 @@ func main() {
 	logger := slog.New(slog.NewJSONHandler(os.Stdout, nil))
 
 	if err := godotenv.Load(); err != nil {
-		logger.Warn("archivo .env no encontrado, usando variables de entorno del sistema")
+		logger.Warn(".env file not found, falling back to system environment variables")
 	}
 
 	cfg := config.Load()
@@ -68,7 +68,7 @@ func main() {
 
 	go func() {
 		if err := srv.ListenAndServe(); err != nil && err != http.ErrServerClosed {
-			logger.Error("error al iniciar el servidor", "error", err)
+			logger.Error("server failed to start", "error", err)
 			os.Exit(1)
 		}
 	}()
@@ -81,7 +81,7 @@ func main() {
 	defer cancel()
 
 	if err := srv.Shutdown(ctx); err != nil {
-		logger.Error("error al apagar el servidor", "error", err)
+		logger.Error("server shutdown failed", "error", err)
 		os.Exit(1)
 	}
 	logger.Info("server shutdown complete")
