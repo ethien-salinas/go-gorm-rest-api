@@ -1,20 +1,19 @@
 package handlers
 
 import (
+	"context"
 	"net/http"
-
-	"gorm.io/gorm"
 )
 
+// Pinger is satisfied by any type that can check database connectivity.
+type Pinger interface {
+	PingContext(ctx context.Context) error
+}
+
 // NewHealthHandler returns an [http.HandlerFunc] that responds 200 OK when the database is reachable.
-func NewHealthHandler(db *gorm.DB) http.HandlerFunc {
+func NewHealthHandler(p Pinger) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
-		sqlDB, err := db.DB()
-		if err != nil {
-			w.WriteHeader(http.StatusServiceUnavailable)
-			return
-		}
-		if err := sqlDB.PingContext(r.Context()); err != nil {
+		if err := p.PingContext(r.Context()); err != nil {
 			w.WriteHeader(http.StatusServiceUnavailable)
 			return
 		}

@@ -33,6 +33,12 @@ func main() {
 		db.AutoMigrate(&models.User{}, &models.Task{})
 	}
 
+	sqlDB, err := db.DB()
+	if err != nil {
+		logger.Error("failed to get sql.DB", "error", err)
+		os.Exit(1)
+	}
+
 	userRepo := repository.NewUserRepository(db, logger)
 	taskRepo := repository.NewTaskRepository(db, logger)
 
@@ -43,7 +49,7 @@ func main() {
 	r.Use(middleware.Logging(logger))
 
 	r.HandleFunc("/", handlers.HomeHandler).Methods("GET")
-	r.HandleFunc("/health", handlers.NewHealthHandler(db)).Methods("GET")
+	r.HandleFunc("/health", handlers.NewHealthHandler(sqlDB)).Methods("GET")
 
 	api := r.PathPrefix("/api/v1").Subrouter()
 
