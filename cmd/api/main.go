@@ -1,0 +1,83 @@
+package main
+
+import (
+	"context"
+	"log/slog"
+	"net/http"
+	"os"
+	"os/signal"
+	"syscall"
+	"time"
+
+	"github.com/ethien-salinas/go-gorm-rest-api/internal/config"
+	"github.com/ethien-salinas/go-gorm-rest-api/internal/database"
+	"github.com/ethien-salinas/go-gorm-rest-api/internal/handlers"
+	"github.com/ethien-salinas/go-gorm-rest-api/internal/middleware"
+	"github.com/ethien-salinas/go-gorm-rest-api/internal/models"
+	"github.com/ethien-salinas/go-gorm-rest-api/internal/repository"
+	"github.com/gorilla/mux"
+	"github.com/joho/godotenv"
+)
+
+func main() {
+	logger := slog.New(slog.NewJSONHandler(os.Stdout, nil))
+
+	if err := godotenv.Load(); err != nil {
+		logger.Warn("archivo .env no encontrado, usando variables de entorno del sistema")
+	}
+
+	cfg := config.Load()
+	db := database.Connect(cfg, logger)
+	db.AutoMigrate(&models.User{}, &models.Task{})
+
+	userRepo := repository.NewUserRepository(db, logger)
+	taskRepo := repository.NewTaskRepository(db, logger)
+
+	userHandler := handlers.NewUserHandler(userRepo, logger)
+	taskHandler := handlers.NewTaskHandler(taskRepo, logger)
+
+	r := mux.NewRouter()
+	r.Use(middleware.Logging(logger))
+
+	r.HandleFunc("/", handlers.HomeHandler).Methods("GET")
+
+	r.HandleFunc("/users", userHandler.GetAll).Methods("GET")
+	r.HandleFunc("/users/{id}", userHandler.GetByID).Methods("GET")
+	r.HandleFunc("/users", userHandler.Create).Methods("POST")
+	r.HandleFunc("/users/{id}", userHandler.Update).Methods("PUT")
+	r.HandleFunc("/users/{id}", userHandler.Delete).Methods("DELETE")
+
+	r.HandleFunc("/tasks", taskHandler.GetAll).Methods("GET")
+	r.HandleFunc("/tasks/{id}", taskHandler.GetByID).Methods("GET")
+	r.HandleFunc("/tasks", taskHandler.Create).Methods("POST")
+	r.HandleFunc("/tasks/{id}", taskHandler.Update).Methods("PUT")
+	r.HandleFunc("/tasks/{id}", taskHandler.Delete).Methods("DELETE")
+
+	srv := &http.Server{
+		Addr:    ":" + cfg.Port,
+		Handler: r,
+	}
+
+	quit := make(chan os.Signal, 1)
+	signal.Notify(quit, syscall.SIGINT, syscall.SIGTERM)
+
+	go func() {
+		if err := srv.ListenAndServe(); err != nil && err != http.ErrServerClosed {
+			logger.Error("error al iniciar el servidor", "error", err)
+			os.Exit(1)
+		}
+	}()
+	logger.Info("server started", "port", cfg.Port)
+
+	<-quit
+	logger.Info("shutdown signal received")
+
+	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+	defer cancel()
+
+	if err := srv.Shutdown(ctx); err != nil {
+		logger.Error("error al apagar el servidor", "error", err)
+		os.Exit(1)
+	}
+	logger.Info("server shutdown complete")
+}
