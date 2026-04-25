@@ -21,12 +21,12 @@ func Load() Config {
 		DBName:      os.Getenv("DB_NAME"),
 		DBPort:      os.Getenv("DB_PORT"),
 		DBSSLMode:   os.Getenv("DB_SSLMODE"),
-		Port:        getEnvOrDefault("PORT", "3000"),
+		Port:        envOrDefault("PORT", "3000"),
 		AutoMigrate: os.Getenv("AUTO_MIGRATE") == "true",
 	}
 }
 
-func getEnvOrDefault(key, defaultValue string) string {
+func envOrDefault(key, defaultValue string) string {
 	if v := os.Getenv(key); v != "" {
 		return v
 	}
