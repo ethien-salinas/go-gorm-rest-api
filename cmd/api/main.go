@@ -1,3 +1,4 @@
+// Command api starts the HTTP server for the Go GORM REST API.
 package main
 
 import (

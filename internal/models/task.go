@@ -6,6 +6,7 @@ import (
 	"gorm.io/gorm"
 )
 
+// Task represents a work item assigned to a [User].
 type Task struct {
 	ID        uint           `gorm:"primaryKey;autoIncrement" json:"id"`
 	CreatedAt time.Time      `json:"created_at"`

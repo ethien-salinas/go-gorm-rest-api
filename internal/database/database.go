@@ -1,3 +1,4 @@
+// Package database provides the PostgreSQL connection via GORM.
 package database
 
 import (
@@ -10,6 +11,8 @@ import (
 	"gorm.io/gorm"
 )
 
+// Connect opens a GORM connection to the PostgreSQL database described by cfg.
+// The connection is terminated if it cannot be established.
 func Connect(cfg config.Config, logger *slog.Logger) *gorm.DB {
 	logger.Info("connecting to database", "host", cfg.DBHost, "dbname", cfg.DBName)
 

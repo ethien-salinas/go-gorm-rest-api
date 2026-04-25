@@ -1,3 +1,4 @@
+// Package middleware provides HTTP middleware for the API server.
 package middleware
 
 import (
@@ -16,6 +17,7 @@ func (rw *responseWriter) WriteHeader(status int) {
 	rw.ResponseWriter.WriteHeader(status)
 }
 
+// Logging returns middleware that logs the method, path, status code, and latency of each request.
 func Logging(logger *slog.Logger) func(http.Handler) http.Handler {
 	return func(next http.Handler) http.Handler {
 		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {

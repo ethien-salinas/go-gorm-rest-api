@@ -10,6 +10,7 @@ import (
 	"github.com/gorilla/mux"
 )
 
+// UserRepository defines the data-access operations required by [UserHandler].
 type UserRepository interface {
 	FindAll(ctx context.Context) ([]models.User, error)
 	FindByID(ctx context.Context, id string) (models.User, error)
@@ -18,15 +19,18 @@ type UserRepository interface {
 	Delete(ctx context.Context, user *models.User) error
 }
 
+// UserHandler handles HTTP requests for the /api/v1/users resource.
 type UserHandler struct {
 	repo   UserRepository
 	logger *slog.Logger
 }
 
+// NewUserHandler returns a [UserHandler] that delegates persistence to repo.
 func NewUserHandler(repo UserRepository, logger *slog.Logger) *UserHandler {
 	return &UserHandler{repo: repo, logger: logger}
 }
 
+// GetAll writes a JSON array of all users to the response.
 func (h *UserHandler) GetAll(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("Content-Type", "application/json")
 	users, err := h.repo.FindAll(r.Context())
@@ -38,6 +42,7 @@ func (h *UserHandler) GetAll(w http.ResponseWriter, r *http.Request) {
 	json.NewEncoder(w).Encode(users)
 }
 
+// GetByID writes the user identified by the route parameter {id} to the response.
 func (h *UserHandler) GetByID(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("Content-Type", "application/json")
 	params := mux.Vars(r)
@@ -62,6 +67,7 @@ type updateUserRequest struct {
 	Email     string `json:"email"`
 }
 
+// Create decodes a user from the request body and persists it, responding 201 on success.
 func (h *UserHandler) Create(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("Content-Type", "application/json")
 	r.Body = http.MaxBytesReader(w, r.Body, 1<<20)
@@ -82,6 +88,7 @@ func (h *UserHandler) Create(w http.ResponseWriter, r *http.Request) {
 	json.NewEncoder(w).Encode(user)
 }
 
+// Update replaces the fields of the user identified by {id} with the values from the request body.
 func (h *UserHandler) Update(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("Content-Type", "application/json")
 	r.Body = http.MaxBytesReader(w, r.Body, 1<<20)
@@ -110,6 +117,7 @@ func (h *UserHandler) Update(w http.ResponseWriter, r *http.Request) {
 	json.NewEncoder(w).Encode(user)
 }
 
+// Delete soft-deletes the user identified by {id}.
 func (h *UserHandler) Delete(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("Content-Type", "application/json")
 	params := mux.Vars(r)

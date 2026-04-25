@@ -10,6 +10,14 @@ Content-Type: application/json
     "description": "learn gorm to build web applications with gorm",
     "user_id": 2
 }
+###
+PUT http://localhost:3000/tasks/2 HTTP/1.1
+Content-Type: application/json
 
+{
+    "title": "learn gorm",
+    "description": "learn gorm to connect to postgres",
+    "user_id": 2
+}
 ###
 DELETE http://localhost:3000/tasks/1 HTTP/1.1

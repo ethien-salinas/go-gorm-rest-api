@@ -1,7 +1,9 @@
+// Package config reads application configuration from environment variables.
 package config
 
 import "os"
 
+// Config holds the application configuration loaded from environment variables.
 type Config struct {
 	DBHost      string
 	DBUser      string
@@ -13,6 +15,8 @@ type Config struct {
 	AutoMigrate bool
 }
 
+// Load returns a [Config] populated from environment variables.
+// The PORT variable defaults to "3000" if not set.
 func Load() Config {
 	return Config{
 		DBHost:      os.Getenv("DB_HOST"),

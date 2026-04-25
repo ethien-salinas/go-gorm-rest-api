@@ -6,6 +6,7 @@ import (
 	"gorm.io/gorm"
 )
 
+// NewHealthHandler returns an [http.HandlerFunc] that responds 200 OK when the database is reachable.
 func NewHealthHandler(db *gorm.DB) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		sqlDB, err := db.DB()

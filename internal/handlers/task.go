@@ -10,6 +10,7 @@ import (
 	"github.com/gorilla/mux"
 )
 
+// TaskRepository defines the data-access operations required by [TaskHandler].
 type TaskRepository interface {
 	FindAll(ctx context.Context) ([]models.Task, error)
 	FindByID(ctx context.Context, id string) (models.Task, error)
@@ -18,15 +19,18 @@ type TaskRepository interface {
 	Delete(ctx context.Context, task *models.Task) error
 }
 
+// TaskHandler handles HTTP requests for the /api/v1/tasks resource.
 type TaskHandler struct {
 	repo   TaskRepository
 	logger *slog.Logger
 }
 
+// NewTaskHandler returns a [TaskHandler] that delegates persistence to repo.
 func NewTaskHandler(repo TaskRepository, logger *slog.Logger) *TaskHandler {
 	return &TaskHandler{repo: repo, logger: logger}
 }
 
+// GetAll writes a JSON array of all tasks to the response.
 func (h *TaskHandler) GetAll(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("Content-Type", "application/json")
 	tasks, err := h.repo.FindAll(r.Context())
@@ -38,6 +42,7 @@ func (h *TaskHandler) GetAll(w http.ResponseWriter, r *http.Request) {
 	json.NewEncoder(w).Encode(tasks)
 }
 
+// GetByID writes the task identified by the route parameter {id} to the response.
 func (h *TaskHandler) GetByID(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("Content-Type", "application/json")
 	params := mux.Vars(r)
@@ -63,6 +68,7 @@ type updateTaskRequest struct {
 	Done        bool   `json:"done"`
 }
 
+// Create decodes a task from the request body and persists it, responding 201 on success.
 func (h *TaskHandler) Create(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("Content-Type", "application/json")
 	r.Body = http.MaxBytesReader(w, r.Body, 1<<20)
@@ -83,6 +89,7 @@ func (h *TaskHandler) Create(w http.ResponseWriter, r *http.Request) {
 	json.NewEncoder(w).Encode(task)
 }
 
+// Update replaces the fields of the task identified by {id} with the values from the request body.
 func (h *TaskHandler) Update(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("Content-Type", "application/json")
 	r.Body = http.MaxBytesReader(w, r.Body, 1<<20)
@@ -111,6 +118,7 @@ func (h *TaskHandler) Update(w http.ResponseWriter, r *http.Request) {
 	json.NewEncoder(w).Encode(task)
 }
 
+// Delete soft-deletes the task identified by {id}.
 func (h *TaskHandler) Delete(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("Content-Type", "application/json")
 	params := mux.Vars(r)

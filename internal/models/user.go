@@ -1,3 +1,4 @@
+// Package models defines the GORM entity types for the application.
 package models
 
 import (
@@ -6,6 +7,7 @@ import (
 	"gorm.io/gorm"
 )
 
+// User represents a registered user with an associated list of tasks.
 type User struct {
 	ID        uint           `gorm:"primaryKey;autoIncrement" json:"id"`
 	CreatedAt time.Time      `json:"created_at"`
