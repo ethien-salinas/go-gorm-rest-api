@@ -15,10 +15,9 @@ PUT http://localhost:3000/api/v1/tasks/2 HTTP/1.1
 Content-Type: application/json
 
 {
-    "title": "learn gorm",
-    "description": "learn gorm to connect to postgres",
-    "done": true,
-    "user_id": 2
+    "title": "Learn GORM",
+    "description": "Learn GORM to connect to PostgreSQL",
+    "done": true
 }
 ###
 DELETE http://localhost:3000/api/v1/tasks/1 HTTP/1.1
