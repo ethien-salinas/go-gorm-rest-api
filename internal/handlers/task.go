@@ -52,16 +52,30 @@ func (h *TaskHandler) GetByID(w http.ResponseWriter, r *http.Request) {
 	json.NewEncoder(w).Encode(task)
 }
 
+type createTaskRequest struct {
+	Title       string `json:"title"`
+	Description string `json:"description"`
+	Done        bool   `json:"done"`
+	UserID      uint   `json:"user_id"`
+}
+
+type updateTaskRequest struct {
+	Title       string `json:"title"`
+	Description string `json:"description"`
+	Done        bool   `json:"done"`
+}
+
 func (h *TaskHandler) Create(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("Content-Type", "application/json")
 	r.Body = http.MaxBytesReader(w, r.Body, 1<<20)
-	var task models.Task
-	if err := json.NewDecoder(r.Body).Decode(&task); err != nil {
+	var req createTaskRequest
+	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
 		h.logger.Warn("handler: failed to decode task", "error", err)
 		w.WriteHeader(http.StatusBadRequest)
 		w.Write([]byte("error al decodificar la tarea"))
 		return
 	}
+	task := models.Task{Title: req.Title, Description: req.Description, Done: req.Done, UserID: req.UserID}
 	if err := h.repo.Create(r.Context(), &task); err != nil {
 		h.logger.Error("handler: failed to create task", "error", err)
 		w.WriteHeader(http.StatusInternalServerError)
@@ -84,12 +98,16 @@ func (h *TaskHandler) Update(w http.ResponseWriter, r *http.Request) {
 		w.Write([]byte("tarea no encontrada"))
 		return
 	}
-	if err := json.NewDecoder(r.Body).Decode(&task); err != nil {
+	var req updateTaskRequest
+	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
 		h.logger.Warn("handler: failed to decode task", "error", err)
 		w.WriteHeader(http.StatusBadRequest)
 		w.Write([]byte("error al decodificar la tarea"))
 		return
 	}
+	task.Title = req.Title
+	task.Description = req.Description
+	task.Done = req.Done
 	if err := h.repo.Update(r.Context(), &task); err != nil {
 		h.logger.Error("handler: failed to update task", "id", task.ID, "error", err)
 		w.WriteHeader(http.StatusInternalServerError)

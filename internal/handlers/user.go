@@ -52,16 +52,29 @@ func (h *UserHandler) GetByID(w http.ResponseWriter, r *http.Request) {
 	json.NewEncoder(w).Encode(user)
 }
 
+type createUserRequest struct {
+	FirstName string `json:"first_name"`
+	LastName  string `json:"last_name"`
+	Email     string `json:"email"`
+}
+
+type updateUserRequest struct {
+	FirstName string `json:"first_name"`
+	LastName  string `json:"last_name"`
+	Email     string `json:"email"`
+}
+
 func (h *UserHandler) Create(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("Content-Type", "application/json")
 	r.Body = http.MaxBytesReader(w, r.Body, 1<<20)
-	var user models.User
-	if err := json.NewDecoder(r.Body).Decode(&user); err != nil {
+	var req createUserRequest
+	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
 		h.logger.Warn("handler: failed to decode user", "error", err)
 		w.WriteHeader(http.StatusBadRequest)
 		w.Write([]byte("error al decodificar el usuario"))
 		return
 	}
+	user := models.User{FirstName: req.FirstName, LastName: req.LastName, Email: req.Email}
 	if err := h.repo.Create(r.Context(), &user); err != nil {
 		h.logger.Error("handler: failed to create user", "error", err)
 		w.WriteHeader(http.StatusInternalServerError)
@@ -84,12 +97,16 @@ func (h *UserHandler) Update(w http.ResponseWriter, r *http.Request) {
 		w.Write([]byte("usuario no encontrado"))
 		return
 	}
-	if err := json.NewDecoder(r.Body).Decode(&user); err != nil {
+	var req updateUserRequest
+	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
 		h.logger.Warn("handler: failed to decode user", "error", err)
 		w.WriteHeader(http.StatusBadRequest)
 		w.Write([]byte("error al decodificar el usuario"))
 		return
 	}
+	user.FirstName = req.FirstName
+	user.LastName = req.LastName
+	user.Email = req.Email
 	if err := h.repo.Update(r.Context(), &user); err != nil {
 		h.logger.Error("handler: failed to update user", "id", user.ID, "error", err)
 		w.WriteHeader(http.StatusInternalServerError)
