@@ -1,6 +1,7 @@
 package middleware
 
 import (
+	"maps"
 	"net"
 	"net/http"
 	"sync"
@@ -56,11 +57,9 @@ func (rl *RateLimiter) cleanup() {
 		select {
 		case <-ticker.C:
 			rl.mu.Lock()
-			for ip, v := range rl.visitors {
-				if time.Since(v.lastSeen) > 3*time.Minute {
-					delete(rl.visitors, ip)
-				}
-			}
+			maps.DeleteFunc(rl.visitors, func(_ string, v *visitor) bool {
+				return time.Since(v.lastSeen) > 3*time.Minute
+			})
 			rl.mu.Unlock()
 		case <-rl.done:
 			return
