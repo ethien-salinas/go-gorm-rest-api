@@ -13,6 +13,7 @@ import (
 	"github.com/gorilla/mux"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
+	"golang.org/x/crypto/bcrypt"
 )
 
 func TestUserHandler_GetAll(t *testing.T) {
@@ -147,16 +148,39 @@ func TestUserHandler_Update(t *testing.T) {
 		wantStatus int
 	}{
 		{
-			name: "success",
+			name: "partial update one field",
+			repo: &mockUserRepo{
+				findByIDFn: func(_ context.Context, id string) (models.User, error) {
+					return models.User{FirstName: "old", LastName: "lee", Email: "old@example.com"}, nil
+				},
+				updateFn: func(_ context.Context, u *models.User, fields map[string]any) error { return nil },
+			},
+			id:         "1",
+			body:       `{"first_name":"new"}`,
+			wantStatus: http.StatusOK,
+		},
+		{
+			name: "full update all fields",
 			repo: &mockUserRepo{
 				findByIDFn: func(_ context.Context, id string) (models.User, error) {
 					return models.User{FirstName: "old"}, nil
 				},
-				updateFn: func(_ context.Context, u *models.User) error { return nil },
+				updateFn: func(_ context.Context, u *models.User, fields map[string]any) error { return nil },
 			},
 			id:         "1",
 			body:       `{"first_name":"new","last_name":"lee","email":"new@example.com"}`,
 			wantStatus: http.StatusOK,
+		},
+		{
+			name: "empty body returns 400",
+			repo: &mockUserRepo{
+				findByIDFn: func(_ context.Context, id string) (models.User, error) {
+					return models.User{FirstName: "old"}, nil
+				},
+			},
+			id:         "1",
+			body:       `{}`,
+			wantStatus: http.StatusBadRequest,
 		},
 		{
 			name: "not found",
@@ -186,12 +210,12 @@ func TestUserHandler_Update(t *testing.T) {
 				findByIDFn: func(_ context.Context, id string) (models.User, error) {
 					return models.User{FirstName: "old"}, nil
 				},
-				updateFn: func(_ context.Context, u *models.User) error {
+				updateFn: func(_ context.Context, u *models.User, fields map[string]any) error {
 					return errors.New("db error")
 				},
 			},
 			id:         "1",
-			body:       `{"first_name":"new","last_name":"lee","email":"new@example.com"}`,
+			body:       `{"first_name":"new"}`,
 			wantStatus: http.StatusInternalServerError,
 		},
 	}
@@ -199,7 +223,7 @@ func TestUserHandler_Update(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			h := NewUserHandler(tt.repo, testLogger())
-			req := httptest.NewRequest(http.MethodPut, "/api/v1/users/"+tt.id, strings.NewReader(tt.body))
+			req := httptest.NewRequest(http.MethodPatch, "/api/v1/users/"+tt.id, strings.NewReader(tt.body))
 			req.Header.Set("Content-Type", "application/json")
 			req = mux.SetURLVars(req, map[string]string{"id": tt.id})
 			w := httptest.NewRecorder()
@@ -324,6 +348,104 @@ func TestUserHandler_Delete(t *testing.T) {
 			req = mux.SetURLVars(req, map[string]string{"id": tt.id})
 			w := httptest.NewRecorder()
 			h.Delete(w, req)
+			assert.Equal(t, tt.wantStatus, w.Code)
+		})
+	}
+}
+
+func TestUserHandler_ChangePassword(t *testing.T) {
+	// bcrypt.MinCost (4) para que los tests sean rápidos
+	hash, err := bcrypt.GenerateFromPassword([]byte("oldpass"), bcrypt.MinCost)
+	require.NoError(t, err)
+	validHash := string(hash)
+
+	tests := []struct {
+		name       string
+		repo       UserRepository
+		id         string
+		body       string
+		wantStatus int
+	}{
+		{
+			name: "success",
+			repo: &mockUserRepo{
+				findByIDFn: func(_ context.Context, id string) (models.User, error) {
+					return models.User{PasswordHash: validHash}, nil
+				},
+				updateFn: func(_ context.Context, u *models.User, fields map[string]any) error { return nil },
+			},
+			id:         "1",
+			body:       `{"current_password":"oldpass","new_password":"newpass"}`,
+			wantStatus: http.StatusNoContent,
+		},
+		{
+			name: "wrong current password",
+			repo: &mockUserRepo{
+				findByIDFn: func(_ context.Context, id string) (models.User, error) {
+					return models.User{PasswordHash: validHash}, nil
+				},
+			},
+			id:         "1",
+			body:       `{"current_password":"wrong","new_password":"newpass"}`,
+			wantStatus: http.StatusUnauthorized,
+		},
+		{
+			name: "user not found",
+			repo: &mockUserRepo{
+				findByIDFn: func(_ context.Context, id string) (models.User, error) {
+					return models.User{}, errors.New("not found")
+				},
+			},
+			id:         "99",
+			body:       `{"current_password":"oldpass","new_password":"newpass"}`,
+			wantStatus: http.StatusNotFound,
+		},
+		{
+			name: "missing fields",
+			repo: &mockUserRepo{
+				findByIDFn: func(_ context.Context, id string) (models.User, error) {
+					return models.User{PasswordHash: validHash}, nil
+				},
+			},
+			id:         "1",
+			body:       `{"current_password":"oldpass"}`,
+			wantStatus: http.StatusBadRequest,
+		},
+		{
+			name: "bad JSON",
+			repo: &mockUserRepo{
+				findByIDFn: func(_ context.Context, id string) (models.User, error) {
+					return models.User{PasswordHash: validHash}, nil
+				},
+			},
+			id:         "1",
+			body:       `{invalid}`,
+			wantStatus: http.StatusBadRequest,
+		},
+		{
+			name: "repo error",
+			repo: &mockUserRepo{
+				findByIDFn: func(_ context.Context, id string) (models.User, error) {
+					return models.User{PasswordHash: validHash}, nil
+				},
+				updateFn: func(_ context.Context, u *models.User, fields map[string]any) error {
+					return errors.New("db error")
+				},
+			},
+			id:         "1",
+			body:       `{"current_password":"oldpass","new_password":"newpass"}`,
+			wantStatus: http.StatusInternalServerError,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			h := NewUserHandler(tt.repo, testLogger())
+			req := httptest.NewRequest(http.MethodPatch, "/api/v1/users/"+tt.id+"/password", strings.NewReader(tt.body))
+			req.Header.Set("Content-Type", "application/json")
+			req = mux.SetURLVars(req, map[string]string{"id": tt.id})
+			w := httptest.NewRecorder()
+			h.ChangePassword(w, req)
 			assert.Equal(t, tt.wantStatus, w.Code)
 		})
 	}

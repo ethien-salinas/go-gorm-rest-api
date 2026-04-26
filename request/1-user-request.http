@@ -1,6 +1,11 @@
+
+@token = eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJleHAiOjE3NzcyODA1NzksInN1YiI6M30.Dwc2uUmPITmoSHO3fVC7WlqZ82ywc_ta1AORVUzmOSw
+###
 GET http://localhost:3000/api/v1/users HTTP/1.1
+Authorization: Bearer {{token}}
 ###
 GET http://localhost:3000/api/v1/users/2 HTTP/1.1
+Authorization: Bearer {{token}}
 ###
 POST http://localhost:3000/api/v1/users HTTP/1.1
 Content-Type: application/json
@@ -12,12 +17,23 @@ Content-Type: application/json
 }
 
 ###
-PUT http://localhost:3000/api/v1/users/2 HTTP/1.1
+PATCH http://localhost:3000/api/v1/users/2 HTTP/1.1
 Content-Type: application/json
+Authorization: Bearer {{token}}
 
 {
-    "first_name": "Tommy",
-    "last_name": "Lee"
+    "email":"tommy.lee@gorilla.mux"
 }
 ###
+PATCH http://localhost:3000/api/v1/users/2/password HTTP/1.1
+Content-Type: application/json
+Authorization: Bearer {{token}}
+
+{
+    "current_password": "1234567890",
+    "new_password": "1234567890"
+}
+
+###
 DELETE http://localhost:3000/api/v1/users/1 HTTP/1.1
+Authorization: Bearer {{token}}

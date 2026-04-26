@@ -8,6 +8,7 @@ import (
 
 	"github.com/ethien-salinas/go-gorm-rest-api/internal/models"
 	"github.com/gorilla/mux"
+	"golang.org/x/crypto/bcrypt"
 )
 
 // UserRepository defines the data-access operations required by [UserHandler].
@@ -15,7 +16,7 @@ type UserRepository interface {
 	FindAll(ctx context.Context) ([]models.User, error)
 	FindByID(ctx context.Context, id string) (models.User, error)
 	Create(ctx context.Context, user *models.User) error
-	Update(ctx context.Context, user *models.User) error
+	Update(ctx context.Context, user *models.User, fields map[string]any) error
 	Delete(ctx context.Context, user *models.User) error
 	BatchCreate(ctx context.Context, users []*models.User, workers int) []error
 }
@@ -84,11 +85,12 @@ type CreateUserRequest struct {
 	Email     string `json:"email"`
 }
 
-// UpdateUserRequest holds the fields accepted when updating an existing user.
-type UpdateUserRequest struct {
-	FirstName string `json:"first_name"`
-	LastName  string `json:"last_name"`
-	Email     string `json:"email"`
+// updateUserRequest holds the fields accepted when partially updating an existing user.
+// Pointer fields distinguish "not sent" (nil) from "sent as empty" ("").
+type updateUserRequest struct {
+	FirstName *string `json:"first_name"`
+	LastName  *string `json:"last_name"`
+	Email     *string `json:"email"`
 }
 
 // Create decodes a user from the request body and persists it, responding 201 on success.
@@ -125,20 +127,21 @@ func (h *UserHandler) Create(w http.ResponseWriter, r *http.Request) {
 	}
 }
 
-// Update replaces the fields of the user identified by {id} with the values from the request body.
+// Update applies a partial update to the user identified by {id}.
+// Only the fields present in the request body are modified; omitted fields are left unchanged.
 //
-//	@Summary		Actualizar usuario
-//	@Description	Reemplaza los campos del usuario identificado por {id}.
+//	@Summary		Actualizar usuario (parcial)
+//	@Description	Actualiza solo los campos enviados en el body del usuario identificado por {id}.
 //	@Tags			users
 //	@Accept			json
 //	@Produce		json
 //	@Param			id		path		int					true	"ID del usuario"
-//	@Param			user	body		UpdateUserRequest	true	"Nuevos datos del usuario"
+//	@Param			user	body		updateUserRequest	true	"Campos a actualizar"
 //	@Success		200		{object}	models.User
 //	@Failure		400		{object}	ErrorResponse
 //	@Failure		404		{object}	ErrorResponse
 //	@Failure		500		{object}	ErrorResponse
-//	@Router			/api/v1/users/{id} [put]
+//	@Router			/api/v1/users/{id} [patch]
 func (h *UserHandler) Update(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("Content-Type", "application/json")
 	r.Body = http.MaxBytesReader(w, r.Body, 1<<20)
@@ -149,16 +152,30 @@ func (h *UserHandler) Update(w http.ResponseWriter, r *http.Request) {
 		writeError(w, http.StatusNotFound, "usuario no encontrado")
 		return
 	}
-	var req UpdateUserRequest
+	var req updateUserRequest
 	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
 		h.logger.Warn("handler: failed to decode user", "error", err)
 		writeError(w, http.StatusBadRequest, "error al decodificar el usuario")
 		return
 	}
-	user.FirstName = req.FirstName
-	user.LastName = req.LastName
-	user.Email = req.Email
-	if err := h.repo.Update(r.Context(), &user); err != nil {
+	fields := make(map[string]any)
+	if req.FirstName != nil {
+		fields["first_name"] = *req.FirstName
+		user.FirstName = *req.FirstName
+	}
+	if req.LastName != nil {
+		fields["last_name"] = *req.LastName
+		user.LastName = *req.LastName
+	}
+	if req.Email != nil {
+		fields["email"] = *req.Email
+		user.Email = *req.Email
+	}
+	if len(fields) == 0 {
+		writeError(w, http.StatusBadRequest, "no se proporcionaron campos para actualizar")
+		return
+	}
+	if err := h.repo.Update(r.Context(), &user, fields); err != nil {
 		h.logger.Error("handler: failed to update user", "id", user.ID, "error", err)
 		writeError(w, http.StatusInternalServerError, "error al actualizar el usuario")
 		return
@@ -198,6 +215,70 @@ func (h *UserHandler) Delete(w http.ResponseWriter, r *http.Request) {
 	if err := json.NewEncoder(w).Encode(user); err != nil {
 		h.logger.Error("handler: failed to encode response", "error", err)
 	}
+}
+
+type changePasswordRequest struct {
+	CurrentPassword string `json:"current_password"`
+	NewPassword     string `json:"new_password"`
+}
+
+// ChangePassword verifies the current password and replaces it with a new one.
+// Responds 204 No Content on success.
+//
+//	@Summary		Cambiar contraseña
+//	@Description	Verifica la contraseña actual y la reemplaza con la nueva.
+//	@Tags			users
+//	@Accept			json
+//	@Param			id		path	int						true	"ID del usuario"
+//	@Param			body	body	changePasswordRequest	true	"Contraseñas"
+//	@Success		204
+//	@Failure		400	{object}	ErrorResponse
+//	@Failure		401	{object}	ErrorResponse
+//	@Failure		404	{object}	ErrorResponse
+//	@Failure		500	{object}	ErrorResponse
+//	@Router			/api/v1/users/{id}/password [patch]
+func (h *UserHandler) ChangePassword(w http.ResponseWriter, r *http.Request) {
+	w.Header().Set("Content-Type", "application/json")
+	r.Body = http.MaxBytesReader(w, r.Body, 1<<20)
+
+	params := mux.Vars(r)
+	user, err := h.repo.FindByID(r.Context(), params["id"])
+	if err != nil {
+		h.logger.Warn("handler: user not found for password change", "id", params["id"])
+		writeError(w, http.StatusNotFound, "usuario no encontrado")
+		return
+	}
+
+	var req changePasswordRequest
+	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+		writeError(w, http.StatusBadRequest, "cuerpo de solicitud inválido")
+		return
+	}
+	if req.CurrentPassword == "" || req.NewPassword == "" {
+		writeError(w, http.StatusBadRequest, "current_password y new_password son requeridos")
+		return
+	}
+
+	if err := bcrypt.CompareHashAndPassword([]byte(user.PasswordHash), []byte(req.CurrentPassword)); err != nil {
+		writeError(w, http.StatusUnauthorized, "contraseña actual incorrecta")
+		return
+	}
+
+	newHash, err := bcrypt.GenerateFromPassword([]byte(req.NewPassword), bcrypt.DefaultCost)
+	if err != nil {
+		h.logger.Error("handler: failed to hash new password", "error", err)
+		writeError(w, http.StatusInternalServerError, "error al procesar la solicitud")
+		return
+	}
+
+	if err := h.repo.Update(r.Context(), &user, map[string]any{"password_hash": string(newHash)}); err != nil {
+		h.logger.Error("handler: failed to update password", "id", user.ID, "error", err)
+		writeError(w, http.StatusInternalServerError, "error al actualizar la contraseña")
+		return
+	}
+
+	h.logger.Info("password changed", "id", user.ID)
+	w.WriteHeader(http.StatusNoContent)
 }
 
 // batchCreateRequest holds the fields accepted by the batch create endpoint.

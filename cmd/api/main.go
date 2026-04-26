@@ -95,6 +95,7 @@ func main() {
 	userHandler := handlers.NewUserHandler(userRepo, log)
 	taskHandler := handlers.NewTaskHandler(taskRepo, log)
 	statsHandler := handlers.NewStatsHandler(userRepo, taskRepo, log)
+	authHandler := handlers.NewAuthHandler(userRepo, cfg.JWTSecret, cfg.JWTExpiryHours, log)
 
 	// AsyncLogger: envía logs al canal sin bloquear el goroutine del request.
 	// El worker goroutine los escribe a slog desde su propio goroutine.
@@ -108,13 +109,18 @@ func main() {
 	r.HandleFunc("/", handlers.HomeHandler).Methods("GET")
 	r.HandleFunc("/health", handlers.NewHealthHandler(sqlDB)).Methods("GET")
 
+	r.HandleFunc("/auth/signup", authHandler.Signup).Methods("POST")
+	r.HandleFunc("/auth/login", authHandler.Login).Methods("POST")
+
 	api := r.PathPrefix("/api/v1").Subrouter()
+	api.Use(middleware.Auth(cfg.JWTSecret))
 
 	api.HandleFunc("/users", userHandler.GetAll).Methods("GET")
 	api.HandleFunc("/users/batch", userHandler.BatchCreate).Methods("POST") // antes de /users/{id}
 	api.HandleFunc("/users/{id}", userHandler.GetByID).Methods("GET")
 	api.HandleFunc("/users", userHandler.Create).Methods("POST")
-	api.HandleFunc("/users/{id}", userHandler.Update).Methods("PUT")
+	api.HandleFunc("/users/{id}", userHandler.Update).Methods("PATCH")
+	api.HandleFunc("/users/{id}/password", userHandler.ChangePassword).Methods("PATCH")
 	api.HandleFunc("/users/{id}", userHandler.Delete).Methods("DELETE")
 
 	api.HandleFunc("/tasks", taskHandler.GetAll).Methods("GET")

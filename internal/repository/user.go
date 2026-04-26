@@ -51,9 +51,9 @@ func (r *UserRepository) Create(ctx context.Context, user *models.User) error {
 	return nil
 }
 
-// Update persists changes to an existing user record.
-func (r *UserRepository) Update(ctx context.Context, user *models.User) error {
-	if err := r.db.WithContext(ctx).Save(user).Error; err != nil {
+// Update applies only the columns present in fields to the given user record.
+func (r *UserRepository) Update(ctx context.Context, user *models.User, fields map[string]any) error {
+	if err := r.db.WithContext(ctx).Model(user).Updates(fields).Error; err != nil {
 		r.logger.Error("repository: failed to update user", "id", user.ID, "error", err)
 		return fmt.Errorf("userRepository.Update: %w", err)
 	}
@@ -77,6 +77,16 @@ func (r *UserRepository) Count(ctx context.Context) (int64, error) {
 		return 0, fmt.Errorf("userRepository.Count: %w", err)
 	}
 	return count, nil
+}
+
+// FindByEmail returns the user with the given email address.
+func (r *UserRepository) FindByEmail(ctx context.Context, email string) (*models.User, error) {
+	var user models.User
+	if err := r.db.WithContext(ctx).Where("email = ?", email).First(&user).Error; err != nil {
+		r.logger.Error("repository: failed to find user by email", "email", email, "error", err)
+		return nil, fmt.Errorf("userRepository.FindByEmail: %w", err)
+	}
+	return &user, nil
 }
 
 // BatchCreate inserts multiple users concurrently using a worker pool of size workers.

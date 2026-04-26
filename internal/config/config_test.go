@@ -25,15 +25,16 @@ func TestLoad(t *testing.T) {
 				"AUTO_MIGRATE": "false",
 			},
 			want: Config{
-				DBHost:      "localhost",
-				DBUser:      "postgres",
-				DBPassword:  "secret",
-				DBName:      "mydb",
-				DBPort:      "5432",
-				DBSSLMode:   "disable",
-				Port:        "8080",
-				AutoMigrate: false,
-				LogDir:      "logs",
+				DBHost:         "localhost",
+				DBUser:         "postgres",
+				DBPassword:     "secret",
+				DBName:         "mydb",
+				DBPort:         "5432",
+				DBSSLMode:      "disable",
+				Port:           "8080",
+				AutoMigrate:    false,
+				LogDir:         "logs",
+				JWTExpiryHours: 24,
 			},
 		},
 		{
@@ -42,8 +43,9 @@ func TestLoad(t *testing.T) {
 				"PORT": "",
 			},
 			want: Config{
-				Port:   "3000",
-				LogDir: "logs",
+				Port:           "3000",
+				LogDir:         "logs",
+				JWTExpiryHours: 24,
 			},
 		},
 		{
@@ -53,9 +55,10 @@ func TestLoad(t *testing.T) {
 				"PORT":         "",
 			},
 			want: Config{
-				AutoMigrate: true,
-				Port:        "3000",
-				LogDir:      "logs",
+				AutoMigrate:    true,
+				Port:           "3000",
+				LogDir:         "logs",
+				JWTExpiryHours: 24,
 			},
 		},
 		{
@@ -66,9 +69,10 @@ func TestLoad(t *testing.T) {
 				"PORT":        "",
 			},
 			want: Config{
-				Port:      "3000",
-				LogToFile: true,
-				LogDir:    "/var/log/myapp",
+				Port:           "3000",
+				LogToFile:      true,
+				LogDir:         "/var/log/myapp",
+				JWTExpiryHours: 24,
 			},
 		},
 		{
@@ -78,8 +82,23 @@ func TestLoad(t *testing.T) {
 				"PORT":    "",
 			},
 			want: Config{
-				Port:   "3000",
-				LogDir: "logs",
+				Port:           "3000",
+				LogDir:         "logs",
+				JWTExpiryHours: 24,
+			},
+		},
+		{
+			name: "JWT fields set",
+			env: map[string]string{
+				"JWT_SECRET":       "mysecret",
+				"JWT_EXPIRY_HOURS": "48",
+				"PORT":             "",
+			},
+			want: Config{
+				Port:           "3000",
+				LogDir:         "logs",
+				JWTSecret:      "mysecret",
+				JWTExpiryHours: 48,
 			},
 		},
 	}

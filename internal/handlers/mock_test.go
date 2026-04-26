@@ -12,7 +12,7 @@ type mockUserRepo struct {
 	findAllFn      func(ctx context.Context) ([]models.User, error)
 	findByIDFn     func(ctx context.Context, id string) (models.User, error)
 	createFn       func(ctx context.Context, u *models.User) error
-	updateFn       func(ctx context.Context, u *models.User) error
+	updateFn       func(ctx context.Context, u *models.User, fields map[string]any) error
 	deleteFn       func(ctx context.Context, u *models.User) error
 	batchCreateFn  func(ctx context.Context, users []*models.User, workers int) []error
 }
@@ -29,8 +29,11 @@ func (m *mockUserRepo) Create(ctx context.Context, u *models.User) error {
 	return m.createFn(ctx, u)
 }
 
-func (m *mockUserRepo) Update(ctx context.Context, u *models.User) error {
-	return m.updateFn(ctx, u)
+func (m *mockUserRepo) Update(ctx context.Context, u *models.User, fields map[string]any) error {
+	if m.updateFn != nil {
+		return m.updateFn(ctx, u, fields)
+	}
+	return nil
 }
 
 func (m *mockUserRepo) Delete(ctx context.Context, u *models.User) error {
