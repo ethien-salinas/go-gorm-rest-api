@@ -26,6 +26,9 @@ vendor/
 # Claude Code
 .claude/
 
+# Log files
+logs/*.log
+
 # OS
 .DS_Store
 Thumbs.db

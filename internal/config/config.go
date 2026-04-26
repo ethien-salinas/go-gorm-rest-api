@@ -13,10 +13,12 @@ type Config struct {
 	DBSSLMode   string
 	Port        string
 	AutoMigrate bool
+	LogToFile   bool   // LOG_TO_FILE=true habilita escritura a archivos rotativos diarios
+	LogDir      string // LOG_DIR directorio para archivos de log (default: "logs")
 }
 
 // Load returns a [Config] populated from environment variables.
-// The PORT variable defaults to "3000" if not set.
+// PORT defaults to "3000" and LOG_DIR defaults to "logs" if not set.
 func Load() Config {
 	return Config{
 		DBHost:      os.Getenv("DB_HOST"),
@@ -27,6 +29,8 @@ func Load() Config {
 		DBSSLMode:   os.Getenv("DB_SSLMODE"),
 		Port:        envOrDefault("PORT", "3000"),
 		AutoMigrate: os.Getenv("AUTO_MIGRATE") == "true",
+		LogToFile:   os.Getenv("LOG_TO_FILE") == "true",
+		LogDir:      envOrDefault("LOG_DIR", "logs"),
 	}
 }
 

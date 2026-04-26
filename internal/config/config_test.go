@@ -33,6 +33,7 @@ func TestLoad(t *testing.T) {
 				DBSSLMode:   "disable",
 				Port:        "8080",
 				AutoMigrate: false,
+				LogDir:      "logs",
 			},
 		},
 		{
@@ -41,7 +42,8 @@ func TestLoad(t *testing.T) {
 				"PORT": "",
 			},
 			want: Config{
-				Port: "3000",
+				Port:   "3000",
+				LogDir: "logs",
 			},
 		},
 		{
@@ -53,6 +55,31 @@ func TestLoad(t *testing.T) {
 			want: Config{
 				AutoMigrate: true,
 				Port:        "3000",
+				LogDir:      "logs",
+			},
+		},
+		{
+			name: "LOG_TO_FILE true and LOG_DIR custom",
+			env: map[string]string{
+				"LOG_TO_FILE": "true",
+				"LOG_DIR":     "/var/log/myapp",
+				"PORT":        "",
+			},
+			want: Config{
+				Port:      "3000",
+				LogToFile: true,
+				LogDir:    "/var/log/myapp",
+			},
+		},
+		{
+			name: "LOG_DIR defaults to logs",
+			env: map[string]string{
+				"LOG_DIR": "",
+				"PORT":    "",
+			},
+			want: Config{
+				Port:   "3000",
+				LogDir: "logs",
 			},
 		},
 	}

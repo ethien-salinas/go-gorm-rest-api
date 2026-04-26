@@ -21,6 +21,7 @@ import (
 	"github.com/ethien-salinas/go-gorm-rest-api/internal/config"
 	"github.com/ethien-salinas/go-gorm-rest-api/internal/database"
 	"github.com/ethien-salinas/go-gorm-rest-api/internal/handlers"
+	applogger "github.com/ethien-salinas/go-gorm-rest-api/internal/logger"
 	"github.com/ethien-salinas/go-gorm-rest-api/internal/middleware"
 	"github.com/ethien-salinas/go-gorm-rest-api/internal/models"
 	"github.com/ethien-salinas/go-gorm-rest-api/internal/repository"
@@ -30,32 +31,39 @@ import (
 )
 
 func main() {
-	logger := slog.New(slog.NewJSONHandler(os.Stdout, nil))
+	bootstrap := slog.New(slog.NewJSONHandler(os.Stdout, nil))
 
 	if err := godotenv.Load(); err != nil {
-		logger.Warn(".env file not found, falling back to system environment variables")
+		bootstrap.Warn(".env file not found, falling back to system environment variables")
 	}
 
 	cfg := config.Load()
-	db := database.Connect(cfg, logger)
+
+	log, rotator, err := applogger.NewLogger(cfg.LogToFile, cfg.LogDir)
+	if err != nil {
+		bootstrap.Error("failed to initialize logger", "error", err)
+		os.Exit(1)
+	}
+
+	db := database.Connect(cfg, log)
 	if cfg.AutoMigrate {
 		db.AutoMigrate(&models.User{}, &models.Task{})
 	}
 
 	sqlDB, err := db.DB()
 	if err != nil {
-		logger.Error("failed to get sql.DB", "error", err)
+		log.Error("failed to get sql.DB", "error", err)
 		os.Exit(1)
 	}
 
-	userRepo := repository.NewUserRepository(db, logger)
-	taskRepo := repository.NewTaskRepository(db, logger)
+	userRepo := repository.NewUserRepository(db, log)
+	taskRepo := repository.NewTaskRepository(db, log)
 
-	userHandler := handlers.NewUserHandler(userRepo, logger)
-	taskHandler := handlers.NewTaskHandler(taskRepo, logger)
+	userHandler := handlers.NewUserHandler(userRepo, log)
+	taskHandler := handlers.NewTaskHandler(taskRepo, log)
 
 	r := mux.NewRouter()
-	r.Use(middleware.Logging(logger))
+	r.Use(middleware.Logging(log))
 
 	r.PathPrefix("/swagger/").Handler(httpswagger.WrapHandler)
 	r.HandleFunc("/", handlers.HomeHandler).Methods("GET")
@@ -85,21 +93,27 @@ func main() {
 
 	go func() {
 		if err := srv.ListenAndServe(); err != nil && err != http.ErrServerClosed {
-			logger.Error("server failed to start", "error", err)
+			log.Error("server failed to start", "error", err)
 			os.Exit(1)
 		}
 	}()
-	logger.Info("server started", "port", cfg.Port)
+	log.Info("server started", "port", cfg.Port)
 
 	<-quit
-	logger.Info("shutdown signal received")
+	log.Info("shutdown signal received")
 
 	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
 	defer cancel()
 
 	if err := srv.Shutdown(ctx); err != nil {
-		logger.Error("server shutdown failed", "error", err)
+		log.Error("server shutdown failed", "error", err)
 		os.Exit(1)
 	}
-	logger.Info("server shutdown complete")
+	log.Info("server shutdown complete")
+
+	if rotator != nil {
+		if err := rotator.Close(); err != nil {
+			log.Error("failed to close log rotator", "error", err)
+		}
+	}
 }
