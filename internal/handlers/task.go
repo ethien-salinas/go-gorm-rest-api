@@ -47,7 +47,9 @@ func (h *TaskHandler) GetAll(w http.ResponseWriter, r *http.Request) {
 		writeError(w, http.StatusInternalServerError, "error al obtener las tareas")
 		return
 	}
-	json.NewEncoder(w).Encode(tasks)
+	if err := json.NewEncoder(w).Encode(tasks); err != nil {
+		h.logger.Error("handler: failed to encode response", "error", err)
+	}
 }
 
 // GetByID writes the task identified by the route parameter {id} to the response.
@@ -69,7 +71,9 @@ func (h *TaskHandler) GetByID(w http.ResponseWriter, r *http.Request) {
 		writeError(w, http.StatusNotFound, "tarea no encontrada")
 		return
 	}
-	json.NewEncoder(w).Encode(task)
+	if err := json.NewEncoder(w).Encode(task); err != nil {
+		h.logger.Error("handler: failed to encode response", "error", err)
+	}
 }
 
 // CreateTaskRequest holds the fields accepted when creating a new task.
@@ -116,7 +120,9 @@ func (h *TaskHandler) Create(w http.ResponseWriter, r *http.Request) {
 	}
 	h.logger.Info("task created", "id", task.ID)
 	w.WriteHeader(http.StatusCreated)
-	json.NewEncoder(w).Encode(task)
+	if err := json.NewEncoder(w).Encode(task); err != nil {
+		h.logger.Error("handler: failed to encode response", "error", err)
+	}
 }
 
 // Update replaces the fields of the task identified by {id} with the values from the request body.
@@ -158,7 +164,9 @@ func (h *TaskHandler) Update(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	h.logger.Info("task updated", "id", task.ID)
-	json.NewEncoder(w).Encode(task)
+	if err := json.NewEncoder(w).Encode(task); err != nil {
+		h.logger.Error("handler: failed to encode response", "error", err)
+	}
 }
 
 // Delete soft-deletes the task identified by {id}.
@@ -187,5 +195,7 @@ func (h *TaskHandler) Delete(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	h.logger.Info("task deleted", "id", task.ID)
-	json.NewEncoder(w).Encode(task)
+	if err := json.NewEncoder(w).Encode(task); err != nil {
+		h.logger.Error("handler: failed to encode response", "error", err)
+	}
 }

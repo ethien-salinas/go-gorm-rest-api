@@ -47,7 +47,9 @@ func (h *UserHandler) GetAll(w http.ResponseWriter, r *http.Request) {
 		writeError(w, http.StatusInternalServerError, "error al obtener los usuarios")
 		return
 	}
-	json.NewEncoder(w).Encode(users)
+	if err := json.NewEncoder(w).Encode(users); err != nil {
+		h.logger.Error("handler: failed to encode response", "error", err)
+	}
 }
 
 // GetByID writes the user identified by the route parameter {id} to the response.
@@ -69,7 +71,9 @@ func (h *UserHandler) GetByID(w http.ResponseWriter, r *http.Request) {
 		writeError(w, http.StatusNotFound, "usuario no encontrado")
 		return
 	}
-	json.NewEncoder(w).Encode(user)
+	if err := json.NewEncoder(w).Encode(user); err != nil {
+		h.logger.Error("handler: failed to encode response", "error", err)
+	}
 }
 
 // CreateUserRequest holds the fields accepted when creating a new user.
@@ -115,7 +119,9 @@ func (h *UserHandler) Create(w http.ResponseWriter, r *http.Request) {
 	}
 	h.logger.Info("user created", "id", user.ID)
 	w.WriteHeader(http.StatusCreated)
-	json.NewEncoder(w).Encode(user)
+	if err := json.NewEncoder(w).Encode(user); err != nil {
+		h.logger.Error("handler: failed to encode response", "error", err)
+	}
 }
 
 // Update replaces the fields of the user identified by {id} with the values from the request body.
@@ -157,7 +163,9 @@ func (h *UserHandler) Update(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	h.logger.Info("user updated", "id", user.ID)
-	json.NewEncoder(w).Encode(user)
+	if err := json.NewEncoder(w).Encode(user); err != nil {
+		h.logger.Error("handler: failed to encode response", "error", err)
+	}
 }
 
 // Delete soft-deletes the user identified by {id}.
@@ -186,5 +194,7 @@ func (h *UserHandler) Delete(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	h.logger.Info("user deleted", "id", user.ID)
-	json.NewEncoder(w).Encode(user)
+	if err := json.NewEncoder(w).Encode(user); err != nil {
+		h.logger.Error("handler: failed to encode response", "error", err)
+	}
 }
