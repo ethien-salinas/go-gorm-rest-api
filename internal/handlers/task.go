@@ -7,7 +7,6 @@ import (
 	"net/http"
 
 	"github.com/ethien-salinas/go-gorm-rest-api/internal/models"
-	"github.com/gorilla/mux"
 )
 
 // TaskRepository defines the data-access operations required by [TaskHandler].
@@ -64,10 +63,10 @@ func (h *TaskHandler) GetAll(w http.ResponseWriter, r *http.Request) {
 //	@Router			/api/v1/tasks/{id} [get]
 func (h *TaskHandler) GetByID(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("Content-Type", "application/json")
-	params := mux.Vars(r)
-	task, err := h.repo.FindByID(r.Context(), params["id"])
+	id := r.PathValue("id")
+	task, err := h.repo.FindByID(r.Context(), id)
 	if err != nil {
-		h.logger.Warn("handler: task not found", "id", params["id"])
+		h.logger.Warn("handler: task not found", "id", id)
 		writeError(w, http.StatusNotFound, "tarea no encontrada")
 		return
 	}
@@ -144,10 +143,10 @@ func (h *TaskHandler) Create(w http.ResponseWriter, r *http.Request) {
 func (h *TaskHandler) Update(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("Content-Type", "application/json")
 	r.Body = http.MaxBytesReader(w, r.Body, 1<<20)
-	params := mux.Vars(r)
-	task, err := h.repo.FindByID(r.Context(), params["id"])
+	id := r.PathValue("id")
+	task, err := h.repo.FindByID(r.Context(), id)
 	if err != nil {
-		h.logger.Warn("handler: task not found for update", "id", params["id"])
+		h.logger.Warn("handler: task not found for update", "id", id)
 		writeError(w, http.StatusNotFound, "tarea no encontrada")
 		return
 	}
@@ -198,10 +197,10 @@ func (h *TaskHandler) Update(w http.ResponseWriter, r *http.Request) {
 //	@Router			/api/v1/tasks/{id} [delete]
 func (h *TaskHandler) Delete(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("Content-Type", "application/json")
-	params := mux.Vars(r)
-	task, err := h.repo.FindByID(r.Context(), params["id"])
+	id := r.PathValue("id")
+	task, err := h.repo.FindByID(r.Context(), id)
 	if err != nil {
-		h.logger.Warn("handler: task not found for delete", "id", params["id"])
+		h.logger.Warn("handler: task not found for delete", "id", id)
 		writeError(w, http.StatusNotFound, "tarea no encontrada")
 		return
 	}

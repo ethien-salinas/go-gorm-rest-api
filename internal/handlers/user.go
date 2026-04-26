@@ -7,7 +7,6 @@ import (
 	"net/http"
 
 	"github.com/ethien-salinas/go-gorm-rest-api/internal/models"
-	"github.com/gorilla/mux"
 	"golang.org/x/crypto/bcrypt"
 )
 
@@ -66,10 +65,10 @@ func (h *UserHandler) GetAll(w http.ResponseWriter, r *http.Request) {
 //	@Router			/api/v1/users/{id} [get]
 func (h *UserHandler) GetByID(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("Content-Type", "application/json")
-	params := mux.Vars(r)
-	user, err := h.repo.FindByID(r.Context(), params["id"])
+	id := r.PathValue("id")
+	user, err := h.repo.FindByID(r.Context(), id)
 	if err != nil {
-		h.logger.Warn("handler: user not found", "id", params["id"])
+		h.logger.Warn("handler: user not found", "id", id)
 		writeError(w, http.StatusNotFound, "usuario no encontrado")
 		return
 	}
@@ -145,10 +144,10 @@ func (h *UserHandler) Create(w http.ResponseWriter, r *http.Request) {
 func (h *UserHandler) Update(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("Content-Type", "application/json")
 	r.Body = http.MaxBytesReader(w, r.Body, 1<<20)
-	params := mux.Vars(r)
-	user, err := h.repo.FindByID(r.Context(), params["id"])
+	id := r.PathValue("id")
+	user, err := h.repo.FindByID(r.Context(), id)
 	if err != nil {
-		h.logger.Warn("handler: user not found for update", "id", params["id"])
+		h.logger.Warn("handler: user not found for update", "id", id)
 		writeError(w, http.StatusNotFound, "usuario no encontrado")
 		return
 	}
@@ -199,10 +198,10 @@ func (h *UserHandler) Update(w http.ResponseWriter, r *http.Request) {
 //	@Router			/api/v1/users/{id} [delete]
 func (h *UserHandler) Delete(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("Content-Type", "application/json")
-	params := mux.Vars(r)
-	user, err := h.repo.FindByID(r.Context(), params["id"])
+	id := r.PathValue("id")
+	user, err := h.repo.FindByID(r.Context(), id)
 	if err != nil {
-		h.logger.Warn("handler: user not found for delete", "id", params["id"])
+		h.logger.Warn("handler: user not found for delete", "id", id)
 		writeError(w, http.StatusNotFound, "usuario no encontrado")
 		return
 	}
@@ -241,10 +240,10 @@ func (h *UserHandler) ChangePassword(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("Content-Type", "application/json")
 	r.Body = http.MaxBytesReader(w, r.Body, 1<<20)
 
-	params := mux.Vars(r)
-	user, err := h.repo.FindByID(r.Context(), params["id"])
+	id := r.PathValue("id")
+	user, err := h.repo.FindByID(r.Context(), id)
 	if err != nil {
-		h.logger.Warn("handler: user not found for password change", "id", params["id"])
+		h.logger.Warn("handler: user not found for password change", "id", id)
 		writeError(w, http.StatusNotFound, "usuario no encontrado")
 		return
 	}

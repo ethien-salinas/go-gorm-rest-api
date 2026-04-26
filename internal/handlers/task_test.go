@@ -9,7 +9,6 @@ import (
 	"testing"
 
 	"github.com/ethien-salinas/go-gorm-rest-api/internal/models"
-	"github.com/gorilla/mux"
 	"github.com/stretchr/testify/assert"
 )
 
@@ -82,10 +81,11 @@ func TestTaskHandler_GetByID(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			h := NewTaskHandler(tt.repo, testLogger())
+			testMux := http.NewServeMux()
+			testMux.HandleFunc("GET /api/v1/tasks/{id}", h.GetByID)
 			req := httptest.NewRequest(http.MethodGet, "/api/v1/tasks/"+tt.id, nil)
-			req = mux.SetURLVars(req, map[string]string{"id": tt.id})
 			w := httptest.NewRecorder()
-			h.GetByID(w, req)
+			testMux.ServeHTTP(w, req)
 			assert.Equal(t, tt.wantStatus, w.Code)
 		})
 	}
@@ -232,11 +232,12 @@ func TestTaskHandler_Update(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			h := NewTaskHandler(tt.repo, testLogger())
+			testMux := http.NewServeMux()
+			testMux.HandleFunc("PATCH /api/v1/tasks/{id}", h.Update)
 			req := httptest.NewRequest(http.MethodPatch, "/api/v1/tasks/"+tt.id, strings.NewReader(tt.body))
 			req.Header.Set("Content-Type", "application/json")
-			req = mux.SetURLVars(req, map[string]string{"id": tt.id})
 			w := httptest.NewRecorder()
-			h.Update(w, req)
+			testMux.ServeHTTP(w, req)
 			assert.Equal(t, tt.wantStatus, w.Code)
 		})
 	}
@@ -288,10 +289,11 @@ func TestTaskHandler_Delete(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			h := NewTaskHandler(tt.repo, testLogger())
+			testMux := http.NewServeMux()
+			testMux.HandleFunc("DELETE /api/v1/tasks/{id}", h.Delete)
 			req := httptest.NewRequest(http.MethodDelete, "/api/v1/tasks/"+tt.id, nil)
-			req = mux.SetURLVars(req, map[string]string{"id": tt.id})
 			w := httptest.NewRecorder()
-			h.Delete(w, req)
+			testMux.ServeHTTP(w, req)
 			assert.Equal(t, tt.wantStatus, w.Code)
 		})
 	}

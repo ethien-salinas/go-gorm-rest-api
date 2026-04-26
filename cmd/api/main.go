@@ -26,7 +26,6 @@ import (
 	"github.com/ethien-salinas/go-gorm-rest-api/internal/middleware"
 	"github.com/ethien-salinas/go-gorm-rest-api/internal/models"
 	"github.com/ethien-salinas/go-gorm-rest-api/internal/repository"
-	"github.com/gorilla/mux"
 	"github.com/joho/godotenv"
 	httpswagger "github.com/swaggo/http-swagger"
 	"gorm.io/gorm"
@@ -106,39 +105,37 @@ func main() {
 	// los 429 también queden registrados. Configurable via RATE_LIMIT_RPS / RATE_LIMIT_BURST.
 	rateLimiter := middleware.NewRateLimiter(cfg.RateLimitRPS, cfg.RateLimitBurst)
 
-	r := mux.NewRouter()
-	r.Use(rateLimiter.Middleware())
-	r.Use(middleware.Logging(asyncLog))
+	mux := http.NewServeMux()
 
-	r.PathPrefix("/swagger/").Handler(httpswagger.WrapHandler)
-	r.HandleFunc("/", handlers.HomeHandler).Methods("GET")
-	r.HandleFunc("/health", handlers.NewHealthHandler(sqlDB)).Methods("GET")
+	global := []func(http.Handler) http.Handler{
+		rateLimiter.Middleware(),
+		middleware.Logging(asyncLog),
+	}
+	protected := append(global[:len(global):len(global)], middleware.Auth(cfg.JWTSecret))
 
-	r.HandleFunc("/auth/signup", authHandler.Signup).Methods("POST")
-	r.HandleFunc("/auth/login", authHandler.Login).Methods("POST")
+	mux.Handle("GET /swagger/",       chain(httpswagger.WrapHandler, global...))
+	mux.Handle("GET /",               chain(http.HandlerFunc(handlers.HomeHandler), global...))
+	mux.Handle("GET /health",         chain(http.HandlerFunc(handlers.NewHealthHandler(sqlDB)), global...))
+	mux.Handle("POST /auth/signup",   chain(http.HandlerFunc(authHandler.Signup), global...))
+	mux.Handle("POST /auth/login",    chain(http.HandlerFunc(authHandler.Login), global...))
 
-	api := r.PathPrefix("/api/v1").Subrouter()
-	api.Use(middleware.Auth(cfg.JWTSecret))
-
-	api.HandleFunc("/users", userHandler.GetAll).Methods("GET")
-	api.HandleFunc("/users/batch", userHandler.BatchCreate).Methods("POST") // antes de /users/{id}
-	api.HandleFunc("/users/{id}", userHandler.GetByID).Methods("GET")
-	api.HandleFunc("/users", userHandler.Create).Methods("POST")
-	api.HandleFunc("/users/{id}", userHandler.Update).Methods("PATCH")
-	api.HandleFunc("/users/{id}/password", userHandler.ChangePassword).Methods("PATCH")
-	api.HandleFunc("/users/{id}", userHandler.Delete).Methods("DELETE")
-
-	api.HandleFunc("/tasks", taskHandler.GetAll).Methods("GET")
-	api.HandleFunc("/tasks/{id}", taskHandler.GetByID).Methods("GET")
-	api.HandleFunc("/tasks", taskHandler.Create).Methods("POST")
-	api.HandleFunc("/tasks/{id}", taskHandler.Update).Methods("PATCH")
-	api.HandleFunc("/tasks/{id}", taskHandler.Delete).Methods("DELETE")
-
-	api.HandleFunc("/stats", statsHandler.GetStats).Methods("GET")
+	mux.Handle("GET /api/v1/users",                 chain(http.HandlerFunc(userHandler.GetAll), protected...))
+	mux.Handle("POST /api/v1/users/batch",          chain(http.HandlerFunc(userHandler.BatchCreate), protected...))
+	mux.Handle("GET /api/v1/users/{id}",            chain(http.HandlerFunc(userHandler.GetByID), protected...))
+	mux.Handle("POST /api/v1/users",                chain(http.HandlerFunc(userHandler.Create), protected...))
+	mux.Handle("PATCH /api/v1/users/{id}",          chain(http.HandlerFunc(userHandler.Update), protected...))
+	mux.Handle("PATCH /api/v1/users/{id}/password", chain(http.HandlerFunc(userHandler.ChangePassword), protected...))
+	mux.Handle("DELETE /api/v1/users/{id}",         chain(http.HandlerFunc(userHandler.Delete), protected...))
+	mux.Handle("GET /api/v1/tasks",                 chain(http.HandlerFunc(taskHandler.GetAll), protected...))
+	mux.Handle("GET /api/v1/tasks/{id}",            chain(http.HandlerFunc(taskHandler.GetByID), protected...))
+	mux.Handle("POST /api/v1/tasks",                chain(http.HandlerFunc(taskHandler.Create), protected...))
+	mux.Handle("PATCH /api/v1/tasks/{id}",          chain(http.HandlerFunc(taskHandler.Update), protected...))
+	mux.Handle("DELETE /api/v1/tasks/{id}",         chain(http.HandlerFunc(taskHandler.Delete), protected...))
+	mux.Handle("GET /api/v1/stats",                 chain(http.HandlerFunc(statsHandler.GetStats), protected...))
 
 	srv := &http.Server{
 		Addr:    ":" + cfg.Port,
-		Handler: r,
+		Handler: mux,
 	}
 
 	quit := make(chan os.Signal, 1)
@@ -173,4 +170,11 @@ func main() {
 			log.Error("failed to close log rotator", "error", err)
 		}
 	}
+}
+
+func chain(h http.Handler, mw ...func(http.Handler) http.Handler) http.Handler {
+	for i := len(mw) - 1; i >= 0; i-- {
+		h = mw[i](h)
+	}
+	return h
 }

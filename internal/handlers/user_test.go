@@ -10,7 +10,6 @@ import (
 	"testing"
 
 	"github.com/ethien-salinas/go-gorm-rest-api/internal/models"
-	"github.com/gorilla/mux"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	"golang.org/x/crypto/bcrypt"
@@ -85,10 +84,11 @@ func TestUserHandler_GetByID(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			h := NewUserHandler(tt.repo, testLogger())
+			testMux := http.NewServeMux()
+			testMux.HandleFunc("GET /api/v1/users/{id}", h.GetByID)
 			req := httptest.NewRequest(http.MethodGet, "/api/v1/users/"+tt.id, nil)
-			req = mux.SetURLVars(req, map[string]string{"id": tt.id})
 			w := httptest.NewRecorder()
-			h.GetByID(w, req)
+			testMux.ServeHTTP(w, req)
 			assert.Equal(t, tt.wantStatus, w.Code)
 		})
 	}
@@ -223,11 +223,12 @@ func TestUserHandler_Update(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			h := NewUserHandler(tt.repo, testLogger())
+			testMux := http.NewServeMux()
+			testMux.HandleFunc("PATCH /api/v1/users/{id}", h.Update)
 			req := httptest.NewRequest(http.MethodPatch, "/api/v1/users/"+tt.id, strings.NewReader(tt.body))
 			req.Header.Set("Content-Type", "application/json")
-			req = mux.SetURLVars(req, map[string]string{"id": tt.id})
 			w := httptest.NewRecorder()
-			h.Update(w, req)
+			testMux.ServeHTTP(w, req)
 			assert.Equal(t, tt.wantStatus, w.Code)
 		})
 	}
@@ -344,10 +345,11 @@ func TestUserHandler_Delete(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			h := NewUserHandler(tt.repo, testLogger())
+			testMux := http.NewServeMux()
+			testMux.HandleFunc("DELETE /api/v1/users/{id}", h.Delete)
 			req := httptest.NewRequest(http.MethodDelete, "/api/v1/users/"+tt.id, nil)
-			req = mux.SetURLVars(req, map[string]string{"id": tt.id})
 			w := httptest.NewRecorder()
-			h.Delete(w, req)
+			testMux.ServeHTTP(w, req)
 			assert.Equal(t, tt.wantStatus, w.Code)
 		})
 	}
@@ -441,11 +443,12 @@ func TestUserHandler_ChangePassword(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			h := NewUserHandler(tt.repo, testLogger())
+			testMux := http.NewServeMux()
+			testMux.HandleFunc("PATCH /api/v1/users/{id}/password", h.ChangePassword)
 			req := httptest.NewRequest(http.MethodPatch, "/api/v1/users/"+tt.id+"/password", strings.NewReader(tt.body))
 			req.Header.Set("Content-Type", "application/json")
-			req = mux.SetURLVars(req, map[string]string{"id": tt.id})
 			w := httptest.NewRecorder()
-			h.ChangePassword(w, req)
+			testMux.ServeHTTP(w, req)
 			assert.Equal(t, tt.wantStatus, w.Code)
 		})
 	}
