@@ -126,7 +126,7 @@ func main() {
 	api.HandleFunc("/tasks", taskHandler.GetAll).Methods("GET")
 	api.HandleFunc("/tasks/{id}", taskHandler.GetByID).Methods("GET")
 	api.HandleFunc("/tasks", taskHandler.Create).Methods("POST")
-	api.HandleFunc("/tasks/{id}", taskHandler.Update).Methods("PUT")
+	api.HandleFunc("/tasks/{id}", taskHandler.Update).Methods("PATCH")
 	api.HandleFunc("/tasks/{id}", taskHandler.Delete).Methods("DELETE")
 
 	api.HandleFunc("/stats", statsHandler.GetStats).Methods("GET")

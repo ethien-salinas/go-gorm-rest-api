@@ -145,16 +145,51 @@ func TestTaskHandler_Update(t *testing.T) {
 		wantStatus int
 	}{
 		{
-			name: "success",
+			name: "partial update one field",
+			repo: &mockTaskRepo{
+				findByIDFn: func(_ context.Context, id string) (models.Task, error) {
+					return models.Task{Title: "old", Description: "desc", Done: false}, nil
+				},
+				updateFn: func(_ context.Context, tk *models.Task, fields map[string]any) error { return nil },
+			},
+			id:         "1",
+			body:       `{"title":"new"}`,
+			wantStatus: http.StatusOK,
+		},
+		{
+			name: "partial update done flag",
 			repo: &mockTaskRepo{
 				findByIDFn: func(_ context.Context, id string) (models.Task, error) {
 					return models.Task{Title: "old"}, nil
 				},
-				updateFn: func(_ context.Context, tk *models.Task) error { return nil },
+				updateFn: func(_ context.Context, tk *models.Task, fields map[string]any) error { return nil },
+			},
+			id:         "1",
+			body:       `{"done":true}`,
+			wantStatus: http.StatusOK,
+		},
+		{
+			name: "full update all fields",
+			repo: &mockTaskRepo{
+				findByIDFn: func(_ context.Context, id string) (models.Task, error) {
+					return models.Task{Title: "old"}, nil
+				},
+				updateFn: func(_ context.Context, tk *models.Task, fields map[string]any) error { return nil },
 			},
 			id:         "1",
 			body:       `{"title":"new","description":"updated","done":true}`,
 			wantStatus: http.StatusOK,
+		},
+		{
+			name: "empty body returns 400",
+			repo: &mockTaskRepo{
+				findByIDFn: func(_ context.Context, id string) (models.Task, error) {
+					return models.Task{Title: "old"}, nil
+				},
+			},
+			id:         "1",
+			body:       `{}`,
+			wantStatus: http.StatusBadRequest,
 		},
 		{
 			name: "not found",
@@ -184,12 +219,12 @@ func TestTaskHandler_Update(t *testing.T) {
 				findByIDFn: func(_ context.Context, id string) (models.Task, error) {
 					return models.Task{Title: "old"}, nil
 				},
-				updateFn: func(_ context.Context, tk *models.Task) error {
+				updateFn: func(_ context.Context, tk *models.Task, fields map[string]any) error {
 					return errors.New("db error")
 				},
 			},
 			id:         "1",
-			body:       `{"title":"new","description":"updated","done":true}`,
+			body:       `{"title":"new"}`,
 			wantStatus: http.StatusInternalServerError,
 		},
 	}
@@ -197,7 +232,7 @@ func TestTaskHandler_Update(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			h := NewTaskHandler(tt.repo, testLogger())
-			req := httptest.NewRequest(http.MethodPut, "/api/v1/tasks/"+tt.id, strings.NewReader(tt.body))
+			req := httptest.NewRequest(http.MethodPatch, "/api/v1/tasks/"+tt.id, strings.NewReader(tt.body))
 			req.Header.Set("Content-Type", "application/json")
 			req = mux.SetURLVars(req, map[string]string{"id": tt.id})
 			w := httptest.NewRecorder()

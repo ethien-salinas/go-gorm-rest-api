@@ -1,23 +1,27 @@
+@token = eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJleHAiOjE3NzcyODA1NzksInN1YiI6M30.Dwc2uUmPITmoSHO3fVC7WlqZ82ywc_ta1AORVUzmOSw
+###
 GET http://localhost:3000/api/v1/tasks HTTP/1.1
+Authorization: Bearer {{token}}
 ###
 GET http://localhost:3000/api/v1/tasks/1 HTTP/1.1
+Authorization: Bearer {{token}}
 ###
 POST http://localhost:3000/api/v1/tasks HTTP/1.1
+Authorization: Bearer {{token}}
 Content-Type: application/json
 
 {
-    "title": "learn gorm",
-    "description": "learn gorm to build web applications with gorm",
-    "user_id": 2
+    "title": "learn idiomatic go",
+    "description": "learn idiomatic go to build efficient and maintainable code",
+    "user_id": 3
 }
 ###
-PUT http://localhost:3000/api/v1/tasks/2 HTTP/1.1
+PATCH http://localhost:3000/api/v1/tasks/3 HTTP/1.1
+Authorization: Bearer {{token}}
 Content-Type: application/json
 
 {
-    "title": "Learn GORM",
-    "description": "Learn GORM to connect to PostgreSQL",
-    "done": true
+    "description": "Learn idiomatic go to build efficient and maintainable code"
 }
 ###
 DELETE http://localhost:3000/api/v1/tasks/1 HTTP/1.1

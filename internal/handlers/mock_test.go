@@ -51,7 +51,7 @@ type mockTaskRepo struct {
 	findAllFn  func(ctx context.Context) ([]models.Task, error)
 	findByIDFn func(ctx context.Context, id string) (models.Task, error)
 	createFn   func(ctx context.Context, t *models.Task) error
-	updateFn   func(ctx context.Context, t *models.Task) error
+	updateFn   func(ctx context.Context, t *models.Task, fields map[string]any) error
 	deleteFn   func(ctx context.Context, t *models.Task) error
 }
 
@@ -67,8 +67,11 @@ func (m *mockTaskRepo) Create(ctx context.Context, t *models.Task) error {
 	return m.createFn(ctx, t)
 }
 
-func (m *mockTaskRepo) Update(ctx context.Context, t *models.Task) error {
-	return m.updateFn(ctx, t)
+func (m *mockTaskRepo) Update(ctx context.Context, t *models.Task, fields map[string]any) error {
+	if m.updateFn != nil {
+		return m.updateFn(ctx, t, fields)
+	}
+	return nil
 }
 
 func (m *mockTaskRepo) Delete(ctx context.Context, t *models.Task) error {

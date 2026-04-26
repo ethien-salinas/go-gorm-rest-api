@@ -49,9 +49,9 @@ func (r *TaskRepository) Create(ctx context.Context, task *models.Task) error {
 	return nil
 }
 
-// Update persists changes to an existing task record.
-func (r *TaskRepository) Update(ctx context.Context, task *models.Task) error {
-	if err := r.db.WithContext(ctx).Save(task).Error; err != nil {
+// Update applies only the columns present in fields to the given task record.
+func (r *TaskRepository) Update(ctx context.Context, task *models.Task, fields map[string]any) error {
+	if err := r.db.WithContext(ctx).Model(task).Updates(fields).Error; err != nil {
 		r.logger.Error("repository: failed to update task", "id", task.ID, "error", err)
 		return fmt.Errorf("taskRepository.Update: %w", err)
 	}
