@@ -5,6 +5,7 @@ import (
 	"context"
 	"fmt"
 	"log/slog"
+	"sync"
 
 	"github.com/ethien-salinas/go-gorm-rest-api/internal/models"
 	"gorm.io/gorm"
@@ -76,4 +77,25 @@ func (r *UserRepository) Count(ctx context.Context) (int64, error) {
 		return 0, fmt.Errorf("userRepository.Count: %w", err)
 	}
 	return count, nil
+}
+
+// BatchCreate inserts multiple users concurrently using a worker pool of size workers.
+// Cada goroutine escribe a errs[idx] — índice único, sin race condition.
+// Un canal buffereado actúa como semáforo: limita el número de goroutines activas a workers.
+func (r *UserRepository) BatchCreate(ctx context.Context, users []*models.User, workers int) []error {
+	errs := make([]error, len(users))
+	sem := make(chan struct{}, workers) // semáforo: máximo `workers` goroutines simultáneas
+
+	var wg sync.WaitGroup
+	for i, user := range users {
+		wg.Add(1)
+		sem <- struct{}{} // adquirir slot (bloquea si el pool está lleno)
+		go func(idx int, u *models.User) {
+			defer wg.Done()
+			defer func() { <-sem }() // liberar slot al terminar
+			errs[idx] = r.Create(ctx, u)
+		}(i, user)
+	}
+	wg.Wait()
+	return errs
 }

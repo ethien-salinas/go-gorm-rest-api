@@ -17,6 +17,7 @@ type UserRepository interface {
 	Create(ctx context.Context, user *models.User) error
 	Update(ctx context.Context, user *models.User) error
 	Delete(ctx context.Context, user *models.User) error
+	BatchCreate(ctx context.Context, users []*models.User, workers int) []error
 }
 
 // UserHandler handles HTTP requests for the /api/v1/users resource.
@@ -196,5 +197,81 @@ func (h *UserHandler) Delete(w http.ResponseWriter, r *http.Request) {
 	h.logger.Info("user deleted", "id", user.ID)
 	if err := json.NewEncoder(w).Encode(user); err != nil {
 		h.logger.Error("handler: failed to encode response", "error", err)
+	}
+}
+
+// batchCreateRequest holds the fields accepted by the batch create endpoint.
+type batchCreateRequest struct {
+	Users   []CreateUserRequest `json:"users"`
+	Workers int                 `json:"workers"`
+}
+
+// BatchCreateResult reports the outcome for one user in a batch operation.
+type BatchCreateResult struct {
+	Index uint   `json:"index"`
+	ID    uint   `json:"id,omitempty"`
+	Error string `json:"error,omitempty"`
+}
+
+const (
+	maxBatchSize    = 100
+	defaultWorkers  = 5
+)
+
+// BatchCreate inserts multiple users concurrently via a worker pool.
+// Responde 207 Multi-Status si alguna inserción falló, o 201 si todas tuvieron éxito.
+//
+// Patrón enseñado: worker pool con semáforo (canal buffereado), errores parciales en
+// operaciones batch, HTTP 207 Multi-Status para resultados mixtos.
+func (h *UserHandler) BatchCreate(w http.ResponseWriter, r *http.Request) {
+	w.Header().Set("Content-Type", "application/json")
+	r.Body = http.MaxBytesReader(w, r.Body, 1<<20)
+
+	var req batchCreateRequest
+	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+		h.logger.Warn("handler: failed to decode batch request", "error", err)
+		writeError(w, http.StatusBadRequest, "error al decodificar la solicitud")
+		return
+	}
+	if len(req.Users) == 0 {
+		writeError(w, http.StatusBadRequest, "la lista de usuarios no puede estar vacía")
+		return
+	}
+	if len(req.Users) > maxBatchSize {
+		writeError(w, http.StatusBadRequest, "máximo 100 usuarios por lote")
+		return
+	}
+
+	workers := req.Workers
+	if workers <= 0 {
+		workers = defaultWorkers
+	}
+
+	users := make([]*models.User, len(req.Users))
+	for i, u := range req.Users {
+		users[i] = &models.User{FirstName: u.FirstName, LastName: u.LastName, Email: u.Email}
+	}
+
+	errs := h.repo.BatchCreate(r.Context(), users, workers)
+
+	results := make([]BatchCreateResult, len(users))
+	hasError := false
+	for i, u := range users {
+		results[i] = BatchCreateResult{Index: uint(i), ID: u.ID}
+		if errs[i] != nil {
+			results[i].Error = errs[i].Error()
+			hasError = true
+		}
+	}
+
+	// 207 indica que algunas operaciones del lote fallaron; 201 que todas tuvieron éxito.
+	if hasError {
+		w.WriteHeader(http.StatusMultiStatus)
+	} else {
+		w.WriteHeader(http.StatusCreated)
+	}
+
+	if err := json.NewEncoder(w).Encode(results); err != nil {
+		h.logger.Error("handler: failed to encode batch response", "error", err)
 	}
 }

@@ -2,6 +2,7 @@ package handlers
 
 import (
 	"context"
+	"encoding/json"
 	"errors"
 	"net/http"
 	"net/http/httptest"
@@ -11,6 +12,7 @@ import (
 	"github.com/ethien-salinas/go-gorm-rest-api/internal/models"
 	"github.com/gorilla/mux"
 	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 )
 
 func TestUserHandler_GetAll(t *testing.T) {
@@ -203,6 +205,71 @@ func TestUserHandler_Update(t *testing.T) {
 			w := httptest.NewRecorder()
 			h.Update(w, req)
 			assert.Equal(t, tt.wantStatus, w.Code)
+		})
+	}
+}
+
+func TestUserHandler_BatchCreate(t *testing.T) {
+	tests := []struct {
+		name       string
+		body       string
+		batchFn    func(ctx context.Context, users []*models.User, workers int) []error
+		wantStatus int
+		wantErrors bool
+	}{
+		{
+			name:       "all success",
+			body:       `{"users":[{"first_name":"A","last_name":"B","email":"a@b.com"},{"first_name":"C","last_name":"D","email":"c@d.com"}]}`,
+			batchFn:    func(_ context.Context, users []*models.User, _ int) []error { return make([]error, len(users)) },
+			wantStatus: http.StatusCreated,
+		},
+		{
+			name: "partial failure returns 207",
+			body: `{"users":[{"first_name":"A","last_name":"B","email":"a@b.com"},{"first_name":"C","last_name":"D","email":"c@d.com"}]}`,
+			batchFn: func(_ context.Context, users []*models.User, _ int) []error {
+				errs := make([]error, len(users))
+				errs[1] = errors.New("duplicate email")
+				return errs
+			},
+			wantStatus: http.StatusMultiStatus,
+			wantErrors: true,
+		},
+		{
+			name:       "empty users",
+			body:       `{"users":[]}`,
+			wantStatus: http.StatusBadRequest,
+		},
+		{
+			name:       "bad JSON",
+			body:       `{invalid}`,
+			wantStatus: http.StatusBadRequest,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			repo := &mockUserRepo{batchCreateFn: tt.batchFn}
+			h := NewUserHandler(repo, testLogger())
+
+			req := httptest.NewRequest(http.MethodPost, "/api/v1/users/batch", strings.NewReader(tt.body))
+			req.Header.Set("Content-Type", "application/json")
+			w := httptest.NewRecorder()
+
+			h.BatchCreate(w, req)
+
+			assert.Equal(t, tt.wantStatus, w.Code)
+
+			if tt.wantErrors {
+				var results []BatchCreateResult
+				require.NoError(t, json.NewDecoder(w.Body).Decode(&results))
+				hasErr := false
+				for _, r := range results {
+					if r.Error != "" {
+						hasErr = true
+					}
+				}
+				assert.True(t, hasErr, "expected at least one result with error")
+			}
 		})
 	}
 }

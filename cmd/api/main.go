@@ -111,6 +111,7 @@ func main() {
 	api := r.PathPrefix("/api/v1").Subrouter()
 
 	api.HandleFunc("/users", userHandler.GetAll).Methods("GET")
+	api.HandleFunc("/users/batch", userHandler.BatchCreate).Methods("POST") // antes de /users/{id}
 	api.HandleFunc("/users/{id}", userHandler.GetByID).Methods("GET")
 	api.HandleFunc("/users", userHandler.Create).Methods("POST")
 	api.HandleFunc("/users/{id}", userHandler.Update).Methods("PUT")

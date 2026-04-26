@@ -9,11 +9,12 @@ import (
 )
 
 type mockUserRepo struct {
-	findAllFn  func(ctx context.Context) ([]models.User, error)
-	findByIDFn func(ctx context.Context, id string) (models.User, error)
-	createFn   func(ctx context.Context, u *models.User) error
-	updateFn   func(ctx context.Context, u *models.User) error
-	deleteFn   func(ctx context.Context, u *models.User) error
+	findAllFn      func(ctx context.Context) ([]models.User, error)
+	findByIDFn     func(ctx context.Context, id string) (models.User, error)
+	createFn       func(ctx context.Context, u *models.User) error
+	updateFn       func(ctx context.Context, u *models.User) error
+	deleteFn       func(ctx context.Context, u *models.User) error
+	batchCreateFn  func(ctx context.Context, users []*models.User, workers int) []error
 }
 
 func (m *mockUserRepo) FindAll(ctx context.Context) ([]models.User, error) {
@@ -34,6 +35,13 @@ func (m *mockUserRepo) Update(ctx context.Context, u *models.User) error {
 
 func (m *mockUserRepo) Delete(ctx context.Context, u *models.User) error {
 	return m.deleteFn(ctx, u)
+}
+
+func (m *mockUserRepo) BatchCreate(ctx context.Context, users []*models.User, workers int) []error {
+	if m.batchCreateFn != nil {
+		return m.batchCreateFn(ctx, users, workers)
+	}
+	return make([]error, len(users))
 }
 
 type mockTaskRepo struct {
