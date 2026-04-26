@@ -94,6 +94,7 @@ func main() {
 
 	userHandler := handlers.NewUserHandler(userRepo, log)
 	taskHandler := handlers.NewTaskHandler(taskRepo, log)
+	statsHandler := handlers.NewStatsHandler(userRepo, taskRepo, log)
 
 	// AsyncLogger: envía logs al canal sin bloquear el goroutine del request.
 	// El worker goroutine los escribe a slog desde su propio goroutine.
@@ -120,6 +121,8 @@ func main() {
 	api.HandleFunc("/tasks", taskHandler.Create).Methods("POST")
 	api.HandleFunc("/tasks/{id}", taskHandler.Update).Methods("PUT")
 	api.HandleFunc("/tasks/{id}", taskHandler.Delete).Methods("DELETE")
+
+	api.HandleFunc("/stats", statsHandler.GetStats).Methods("GET")
 
 	srv := &http.Server{
 		Addr:    ":" + cfg.Port,

@@ -68,6 +68,22 @@ type mockPinger struct{ err error }
 
 func (m mockPinger) PingContext(_ context.Context) error { return m.err }
 
+type mockUserCounter struct {
+	countFn func(ctx context.Context) (int64, error)
+}
+
+func (m *mockUserCounter) Count(ctx context.Context) (int64, error) {
+	return m.countFn(ctx)
+}
+
+type mockTaskCounter struct {
+	countFn func(ctx context.Context) (int64, error)
+}
+
+func (m *mockTaskCounter) Count(ctx context.Context) (int64, error) {
+	return m.countFn(ctx)
+}
+
 func testLogger() *slog.Logger {
 	return slog.New(slog.NewTextHandler(io.Discard, nil))
 }

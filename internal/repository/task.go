@@ -66,3 +66,13 @@ func (r *TaskRepository) Delete(ctx context.Context, task *models.Task) error {
 	}
 	return nil
 }
+
+// Count returns the total number of non-deleted task records.
+func (r *TaskRepository) Count(ctx context.Context) (int64, error) {
+	var count int64
+	if err := r.db.WithContext(ctx).Model(&models.Task{}).Count(&count).Error; err != nil {
+		r.logger.Error("repository: failed to count tasks", "error", err)
+		return 0, fmt.Errorf("taskRepository.Count: %w", err)
+	}
+	return count, nil
+}

@@ -67,3 +67,13 @@ func (r *UserRepository) Delete(ctx context.Context, user *models.User) error {
 	}
 	return nil
 }
+
+// Count returns the total number of non-deleted user records.
+func (r *UserRepository) Count(ctx context.Context) (int64, error) {
+	var count int64
+	if err := r.db.WithContext(ctx).Model(&models.User{}).Count(&count).Error; err != nil {
+		r.logger.Error("repository: failed to count users", "error", err)
+		return 0, fmt.Errorf("userRepository.Count: %w", err)
+	}
+	return count, nil
+}
