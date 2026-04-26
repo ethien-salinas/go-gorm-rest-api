@@ -218,11 +218,11 @@ const (
 	defaultWorkers  = 5
 )
 
-// BatchCreate inserts multiple users concurrently via a worker pool.
-// Responde 207 Multi-Status si alguna inserción falló, o 201 si todas tuvieron éxito.
+// BatchCreate inserts multiple users concurrently via a worker pool and responds 201 on full
+// success or 207 Multi-Status if any insertion failed.
 //
-// Patrón enseñado: worker pool con semáforo (canal buffereado), errores parciales en
-// operaciones batch, HTTP 207 Multi-Status para resultados mixtos.
+// Uses a buffered-channel semaphore to cap concurrent inserts at the requested workers value
+// (default 5). Maximum batch size is 100 entries.
 func (h *UserHandler) BatchCreate(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("Content-Type", "application/json")
 	r.Body = http.MaxBytesReader(w, r.Body, 1<<20)

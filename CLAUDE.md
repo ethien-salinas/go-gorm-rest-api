@@ -30,37 +30,48 @@ Environment variables are loaded from `.env` automatically (via godotenv). Copy 
 ```
 cmd/api/main.go          ← wiring: crea config, DB, repos, handlers y registra rutas
 internal/config/         ← lee variables de entorno y devuelve un Config struct
-internal/database/       ← abre la conexión GORM y la devuelve (sin estado global)
+internal/database/       ← abre la conexión GORM; retorna (*gorm.DB, error), no llama os.Exit
 internal/models/         ← structs de GORM (User, Task); User tiene []Task via foreignKey
 internal/repository/     ← consultas GORM encapsuladas por entidad (UserRepository, TaskRepository)
 internal/handlers/       ← HTTP handlers como métodos de struct; reciben su repo por inyección
-internal/middleware/     ← middleware HTTP (actualmente: Logging con log/slog)
+internal/middleware/     ← middleware HTTP: Logging usa AsyncLogger (canal buffereado + goroutine worker)
+internal/logger/         ← DailyRotator: io.Writer con rotación diaria y sync.Mutex
 ```
 
-**Flujo de dependencias:** `main` instancia `config.Load()` → `database.Connect(cfg)` → `repository.New*(db)` → `handlers.New*(repo)`. Ninguna capa conoce a la superior.
+**Flujo de dependencias:** `main` instancia `config.Load()` → bootstrap paralelo con `sync.WaitGroup` (logger + DB) → `repository.New*(db)` → `handlers.New*(repo)`. Ninguna capa conoce a la superior.
 
 **Rutas registradas:**
 
 ```
-GET  /              → handlers.HomeHandler         (info JSON de la API)
-GET  /health        → handlers.NewHealthHandler     (ping a la BD)
-GET  /api/v1/users
-GET  /api/v1/users/{id}
-POST /api/v1/users
-PUT  /api/v1/users/{id}
+GET    /                      → handlers.HomeHandler         (info JSON de la API)
+GET    /health                → handlers.NewHealthHandler     (ping a la BD)
+GET    /api/v1/users
+POST   /api/v1/users/batch    → BatchCreate: worker pool paralelo (máx. 100 usuarios)
+GET    /api/v1/users/{id}
+POST   /api/v1/users
+PUT    /api/v1/users/{id}
 DELETE /api/v1/users/{id}
-GET  /api/v1/tasks
-GET  /api/v1/tasks/{id}
-POST /api/v1/tasks
-PUT  /api/v1/tasks/{id}
+GET    /api/v1/tasks
+GET    /api/v1/tasks/{id}
+POST   /api/v1/tasks
+PUT    /api/v1/tasks/{id}
 DELETE /api/v1/tasks/{id}
+GET    /api/v1/stats          → StatsHandler: fan-out de Count(users) y Count(tasks)
 ```
+
+> `/users/batch` debe registrarse **antes** de `/users/{id}` para que gorilla/mux no interprete "batch" como un ID.
 
 **Añadir un nuevo recurso** sigue este orden:
 1. Modelo en `internal/models/` con campos explícitos (sin `gorm.Model`) y json tags en snake_case
 2. Repositorio en `internal/repository/` con métodos `FindAll`, `FindByID`, `Create`, `Update`, `Delete`
 3. Handler en `internal/handlers/`: definir primero la interfaz del repositorio en el mismo archivo, luego el struct handler, constructor y métodos
 4. Registro de rutas en `cmd/api/main.go` bajo el subrouter `/api/v1`
+
+**Añadir un endpoint con concurrencia** — patrones disponibles en el proyecto:
+- **Fan-out (queries independientes):** ver `handlers/stats.go` — goroutines + canales buffereados de tamaño 1
+- **Worker pool (batch IO):** ver `repository/user.go:BatchCreate` — semáforo con `chan struct{}{N}` + WaitGroup
+- **Bootstrap paralelo:** ver `cmd/api/main.go` — `sync.WaitGroup` con goroutines para IO independiente
+- **Async worker:** ver `middleware/async_logger.go` — canal buffereado + goroutine consumer + graceful shutdown
 
 ## Convenciones
 
@@ -83,6 +94,8 @@ DELETE /api/v1/tasks/{id}
 - Se usa `log/slog` con `slog.NewJSONHandler` (JSON estructurado a stdout)
 - El logger se inyecta por constructor en repos y handlers — no hay logger global
 - Usar pares clave-valor semánticos: `"id", user.ID`, `"error", err`
+- El middleware usa `AsyncLogger` (canal buffereado): los requests no bloquean en IO de log
+- Orden de shutdown: `srv.Shutdown` → `asyncLog.Stop()` → `rotator.Close()` — nunca invertir
 
 **Documentación**
 - Todo identificador exportado lleva un doc comment siguiendo [go.dev/doc/comment](https://go.dev/doc/comment): empieza con el nombre del identificador, oración completa con punto final
@@ -92,3 +105,9 @@ DELETE /api/v1/tasks/{id}
 **Servidor**
 - Graceful shutdown con timeout de 5 s al recibir `SIGINT`/`SIGTERM`
 - `AUTO_MIGRATE=true` ejecuta `db.AutoMigrate` al arrancar; mantenerlo en `false` en producción
+- El bootstrap usa `sync.WaitGroup` para inicializar logger y DB en paralelo; usar `bootstrap` (logger stdout) hasta que `log` esté listo
+
+**Concurrencia — invariantes a mantener**
+- Siempre verificar ausencia de data races con `go test -race ./...` tras agregar goroutines
+- Los canales que pueden quedar sin lector deben ser buffereados (mínimo tamaño 1) para evitar goroutine leaks
+- Escribir a `slice[idx]` desde goroutines es seguro solo si cada goroutine escribe a un índice único

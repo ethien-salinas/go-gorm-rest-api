@@ -38,7 +38,7 @@ type statsResponse struct {
 	Errors     []string `json:"errors,omitempty"`
 }
 
-// countResult lleva el conteo o el error de una query de conteo.
+// countResult carries the count value or the error from a single count query.
 type countResult struct {
 	count int64
 	err   error

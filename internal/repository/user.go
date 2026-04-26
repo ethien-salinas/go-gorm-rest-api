@@ -80,8 +80,10 @@ func (r *UserRepository) Count(ctx context.Context) (int64, error) {
 }
 
 // BatchCreate inserts multiple users concurrently using a worker pool of size workers.
-// Cada goroutine escribe a errs[idx] — índice único, sin race condition.
-// Un canal buffereado actúa como semáforo: limita el número de goroutines activas a workers.
+// It returns a slice of errors aligned to the input slice; a nil entry means success.
+//
+// A buffered channel acts as a semaphore capping active goroutines at workers.
+// Writing to errs[idx] from each goroutine is safe because each index is unique.
 func (r *UserRepository) BatchCreate(ctx context.Context, users []*models.User, workers int) []error {
 	errs := make([]error, len(users))
 	sem := make(chan struct{}, workers) // semáforo: máximo `workers` goroutines simultáneas
