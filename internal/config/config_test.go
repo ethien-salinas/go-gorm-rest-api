@@ -35,6 +35,8 @@ func TestLoad(t *testing.T) {
 				AutoMigrate:    false,
 				LogDir:         "logs",
 				JWTExpiryHours: 24,
+				RateLimitRPS:   10,
+				RateLimitBurst: 20,
 			},
 		},
 		{
@@ -46,6 +48,8 @@ func TestLoad(t *testing.T) {
 				Port:           "3000",
 				LogDir:         "logs",
 				JWTExpiryHours: 24,
+				RateLimitRPS:   10,
+				RateLimitBurst: 20,
 			},
 		},
 		{
@@ -59,6 +63,8 @@ func TestLoad(t *testing.T) {
 				Port:           "3000",
 				LogDir:         "logs",
 				JWTExpiryHours: 24,
+				RateLimitRPS:   10,
+				RateLimitBurst: 20,
 			},
 		},
 		{
@@ -73,6 +79,8 @@ func TestLoad(t *testing.T) {
 				LogToFile:      true,
 				LogDir:         "/var/log/myapp",
 				JWTExpiryHours: 24,
+				RateLimitRPS:   10,
+				RateLimitBurst: 20,
 			},
 		},
 		{
@@ -85,6 +93,8 @@ func TestLoad(t *testing.T) {
 				Port:           "3000",
 				LogDir:         "logs",
 				JWTExpiryHours: 24,
+				RateLimitRPS:   10,
+				RateLimitBurst: 20,
 			},
 		},
 		{
@@ -99,6 +109,23 @@ func TestLoad(t *testing.T) {
 				LogDir:         "logs",
 				JWTSecret:      "mysecret",
 				JWTExpiryHours: 48,
+				RateLimitRPS:   10,
+				RateLimitBurst: 20,
+			},
+		},
+		{
+			name: "rate limit fields set",
+			env: map[string]string{
+				"RATE_LIMIT_RPS":   "5",
+				"RATE_LIMIT_BURST": "10",
+				"PORT":             "",
+			},
+			want: Config{
+				Port:           "3000",
+				LogDir:         "logs",
+				JWTExpiryHours: 24,
+				RateLimitRPS:   5,
+				RateLimitBurst: 10,
 			},
 		},
 	}
