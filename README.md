@@ -33,6 +33,7 @@ REST API en Go con GORM y PostgreSQL. Implementa CRUD de usuarios y tareas con a
 | **`log/slog`** | Logging estructurado en JSON (stdlib Go 1.21) |
 | **[golang-jwt/jwt/v5](https://github.com/golang-jwt/jwt)** | Generación y validación de JWT (HS256) |
 | **[bcrypt](https://pkg.go.dev/golang.org/x/crypto/bcrypt)** | Hashing de contraseñas |
+| **[golang.org/x/time/rate](https://pkg.go.dev/golang.org/x/time/rate)** | Token bucket para rate limiting por IP |
 | **[testify](https://github.com/stretchr/testify)** | Aserciones en tests unitarios |
 
 ---
@@ -52,7 +53,7 @@ go-gorm-rest-api/
 │   ├── models/              # Entidades GORM: User, Task
 │   ├── repository/          # Queries a la BD, encapsuladas por entidad
 │   ├── handlers/            # Handlers HTTP
-│   ├── middleware/          # Auth JWT + Logging asíncrono
+│   ├── middleware/          # Auth JWT + Logging asíncrono + Rate Limiting por IP
 │   └── logger/              # DailyRotator: rotación diaria de archivos de log
 │
 ├── request/                 # Archivos .http para probar la API desde VS Code
@@ -131,6 +132,8 @@ cp .env.example .env
 | `LOG_DIR` | Directorio donde se almacenan los archivos de log | `logs` |
 | `JWT_SECRET` | Clave de firma para los tokens JWT (HS256) — **no commitear** | — |
 | `JWT_EXPIRY_HOURS` | Duración del token JWT en horas | `24` |
+| `RATE_LIMIT_RPS` | Peticiones por segundo permitidas por IP (token bucket) | `10` |
+| `RATE_LIMIT_BURST` | Capacidad máxima del bucket — permite ráfagas cortas sobre el RPS | `20` |
 
 > **`AUTO_MIGRATE`**: Cuando está en `true`, GORM crea/actualiza las tablas automáticamente al arrancar. Útil en desarrollo; en producción se recomienda `false` y gestionar migraciones de forma explícita.
 
@@ -282,7 +285,7 @@ type UserRepository interface {
 | **PATCH usa punteros** (`*string`, `*bool`) | Distingue "campo no enviado" (`nil`) de "campo enviado vacío" (`""`). Evita borrar datos accidentalmente. |
 | **`Update` recibe `map[string]any`** | GORM genera un `UPDATE` selectivo que solo toca las columnas enviadas. `password_hash` nunca se sobreescribe por error. |
 | **Body limitado a 1 MB** | `http.MaxBytesReader` protege contra payloads gigantes. |
-| **Graceful shutdown** | Al recibir `SIGINT`/`SIGTERM`, el servidor espera 5 s a que los requests en vuelo terminen antes de cerrar. Luego hace flush del logger y cierra el archivo de logs. El orden `srv.Shutdown` → `asyncLog.Stop()` → `rotator.Close()` es invariante. |
+| **Graceful shutdown** | Al recibir `SIGINT`/`SIGTERM`, el servidor espera 5 s a que los requests en vuelo terminen antes de cerrar. El orden `srv.Shutdown` → `rateLimiter.Stop()` → `asyncLog.Stop()` → `rotator.Close()` es invariante. |
 | **Interfaces por handler** | Rompe la dependencia directa al repositorio concreto y facilita el testing con mocks manuales. |
 
 ---
@@ -297,6 +300,7 @@ El proyecto usa cuatro patrones del stdlib de Go:
 | **Fan-out** | `internal/handlers/stats.go` | Dos queries a la BD corren en goroutines; canales con buffer=1 recolectan los resultados |
 | **Worker pool** | `internal/repository/user.go:BatchCreate` | Semáforo `chan struct{}` de tamaño N limita las goroutines que escriben en la BD simultáneamente |
 | **Async worker** | `internal/middleware/async_logger.go` | Canal buffereado + goroutine consumidora desacoplan el log del path de la request |
+| **Background ticker** | `internal/middleware/rate_limiter.go` | Goroutine con `time.Ticker` limpia cada minuto los visitantes inactivos del map de limiters |
 
 ---
 

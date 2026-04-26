@@ -24,7 +24,7 @@ internal/database/   ← abre conexión GORM; retorna error, no llama os.Exit
 internal/models/     ← structs GORM (User, Task)
 internal/repository/ ← queries GORM por entidad
 internal/handlers/   ← HTTP handlers; cada uno define su propia interfaz de repo
-internal/middleware/ ← Auth (JWT) + Logging (AsyncLogger)
+internal/middleware/ ← Auth (JWT) + Logging (AsyncLogger) + RateLimiter (token bucket per-IP)
 internal/logger/     ← DailyRotator: rotación diaria con sync.Mutex
 ```
 
@@ -59,10 +59,13 @@ GET             /api/v1/stats
 
 **JWT:** `middleware.Auth` valida el Bearer token (HS256), rechaza expirados y algoritmos no-HMAC, e inyecta `userID` en contexto bajo `middleware.UserIDKey`. `/auth/signup` y `/auth/login` son las únicas rutas públicas bajo la raíz.
 
-**Shutdown:** el orden `srv.Shutdown` → `asyncLog.Stop()` → `rotator.Close()` es invariante — nunca invertir.
+**Shutdown:** el orden `srv.Shutdown` → `rateLimiter.Stop()` → `asyncLog.Stop()` → `rotator.Close()` es invariante — nunca invertir.
 
 **Concurrencia — patrones disponibles:**
 - Fan-out: `handlers/stats.go` — goroutines + canales buffer=1
 - Worker pool: `repository/user.go:BatchCreate` — semáforo `chan struct{}`
 - Async worker: `middleware/async_logger.go` — canal buffereado + goroutine consumer
 - Bootstrap paralelo: `cmd/api/main.go` — WaitGroup para IO independiente
+- Background ticker: `middleware/rate_limiter.go` — goroutine con `time.Ticker` limpia visitors inactivos cada minuto
+
+**Rate limiting:** `middleware.RateLimiter` aplica token bucket per-IP en el router principal (antes del logger). Configurable con `RATE_LIMIT_RPS` (default 10 req/s) y `RATE_LIMIT_BURST` (default 20). Responde `429` con `{"error":"too many requests"}`. Instanciar con `NewRateLimiter`, registrar con `.Middleware()`, detener con `.Stop()` en shutdown.
