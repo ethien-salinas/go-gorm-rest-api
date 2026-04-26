@@ -8,6 +8,7 @@ import (
 )
 
 // User represents a registered user with an associated list of tasks.
+// PasswordHash is excluded from JSON responses via json:"-".
 type User struct {
 	ID        uint           `gorm:"primaryKey;autoIncrement" json:"id"`
 	CreatedAt time.Time      `json:"created_at"`
@@ -17,6 +18,6 @@ type User struct {
 	FirstName    string `gorm:"size:100;not null"              json:"first_name"`
 	LastName     string `gorm:"size:100;not null"              json:"last_name"`
 	Email        string `gorm:"size:100;not null;uniqueIndex"  json:"email"`
-	PasswordHash string `gorm:"size:255;not null;default:''"   json:"-"`
+	PasswordHash string `gorm:"size:255;not null;default:''"   json:"-"` // bcrypt hash; never serialized
 	Tasks        []Task `gorm:"foreignKey:UserID"              json:"tasks"`
 }

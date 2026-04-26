@@ -43,20 +43,26 @@ internal/logger/         ← DailyRotator: io.Writer con rotación diaria y sync
 **Rutas registradas:**
 
 ```
-GET    /                      → handlers.HomeHandler         (info JSON de la API)
-GET    /health                → handlers.NewHealthHandler     (ping a la BD)
+GET    /                             → handlers.HomeHandler          (info JSON de la API)
+GET    /health                       → handlers.NewHealthHandler      (ping a la BD)
+
+POST   /auth/signup                  → AuthHandler.Signup             (registro; público)
+POST   /auth/login                   → AuthHandler.Login              (login; devuelve JWT; público)
+
+— subrouter /api/v1 protegido por middleware.Auth —
 GET    /api/v1/users
-POST   /api/v1/users/batch    → BatchCreate: worker pool paralelo (máx. 100 usuarios)
+POST   /api/v1/users/batch           → BatchCreate: worker pool paralelo (máx. 100 usuarios)
 GET    /api/v1/users/{id}
 POST   /api/v1/users
-PUT    /api/v1/users/{id}
+PATCH  /api/v1/users/{id}            → actualización parcial (solo campos enviados)
+PATCH  /api/v1/users/{id}/password   → cambio de contraseña (requiere contraseña actual)
 DELETE /api/v1/users/{id}
 GET    /api/v1/tasks
 GET    /api/v1/tasks/{id}
 POST   /api/v1/tasks
-PUT    /api/v1/tasks/{id}
+PATCH  /api/v1/tasks/{id}            → actualización parcial (solo campos enviados)
 DELETE /api/v1/tasks/{id}
-GET    /api/v1/stats          → StatsHandler: fan-out de Count(users) y Count(tasks)
+GET    /api/v1/stats                 → StatsHandler: fan-out de Count(users) y Count(tasks)
 ```
 
 > `/users/batch` debe registrarse **antes** de `/users/{id}` para que gorilla/mux no interprete "batch" como un ID.
@@ -84,6 +90,7 @@ GET    /api/v1/stats          → StatsHandler: fan-out de Count(users) y Count(
 
 **DTOs de request**
 - Nunca usar el modelo directamente para leer el body. Definir structs privados (`createXRequest`, `updateXRequest`) con solo los campos que el cliente puede enviar. Esto evita mass-assignment de campos de auditoría (`id`, `created_at`, `deleted_at`).
+- Los DTOs de endpoints PATCH usan **punteros** (`*string`, `*bool`) para distinguir "campo no enviado" (nil) de "campo enviado vacío". Al construir el `map[string]any` para GORM solo se incluyen los campos no-nil; retornar 400 si el map queda vacío.
 
 **Respuestas HTTP**
 - Todos los endpoints establecen `Content-Type: application/json`
@@ -106,6 +113,16 @@ GET    /api/v1/stats          → StatsHandler: fan-out de Count(users) y Count(
 - Graceful shutdown con timeout de 5 s al recibir `SIGINT`/`SIGTERM`
 - `AUTO_MIGRATE=true` ejecuta `db.AutoMigrate` al arrancar; mantenerlo en `false` en producción
 - El bootstrap usa `sync.WaitGroup` para inicializar logger y DB en paralelo; usar `bootstrap` (logger stdout) hasta que `log` esté listo
+
+**Autenticación JWT**
+- `POST /auth/signup` y `POST /auth/login` son públicos; el resto de `/api/v1/` está protegido por `middleware.Auth`.
+- `middleware.Auth` valida el Bearer token (HS256), rechaza tokens expirados y cualquier algoritmo distinto a HMAC, e inyecta el `userID` en el contexto bajo la clave privada `middleware.UserIDKey`.
+- `JWT_SECRET` es obligatorio en producción; `JWT_EXPIRY_HOURS` controla la duración del token (default 24 h).
+- Para cambiar contraseña usar `PATCH /api/v1/users/{id}/password` con `current_password` y `new_password`; la contraseña actual siempre se verifica con `bcrypt.CompareHashAndPassword` antes de actualizar.
+
+**Updates selectivos con map**
+- `UserRepository.Update` y `TaskRepository.Update` reciben `(ctx, entity, map[string]any)`. GORM genera `UPDATE … SET col=val WHERE id=?` solo para las columnas del map — `password_hash` y asociaciones no se tocan aunque no estén en el map.
+- Esta firma es la que deben satisfacer los mocks en tests. El mock incluye nil-guard para no requerir `updateFn` en tests que no ejercen el update.
 
 **Concurrencia — invariantes a mantener**
 - Siempre verificar ausencia de data races con `go test -race ./...` tras agregar goroutines

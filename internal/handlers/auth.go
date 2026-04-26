@@ -53,6 +53,17 @@ type tokenResponse struct {
 }
 
 // Signup creates a new user account and responds 201 with {id, email}.
+//
+//	@Summary		Registro de usuario
+//	@Description	Crea una nueva cuenta con email y contraseña hasheada con bcrypt.
+//	@Tags			auth
+//	@Accept			json
+//	@Produce		json
+//	@Param			body	body		signupRequest	true	"Datos de registro"
+//	@Success		201		{object}	map[string]any
+//	@Failure		400		{object}	ErrorResponse
+//	@Failure		500		{object}	ErrorResponse
+//	@Router			/auth/signup [post]
 func (h *AuthHandler) Signup(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("Content-Type", "application/json")
 	r.Body = http.MaxBytesReader(w, r.Body, 1<<20)
@@ -94,6 +105,18 @@ func (h *AuthHandler) Signup(w http.ResponseWriter, r *http.Request) {
 }
 
 // Login verifies credentials and responds 200 with a signed JWT on success.
+//
+//	@Summary		Inicio de sesión
+//	@Description	Verifica email y contraseña; devuelve un JWT Bearer token firmado con HS256.
+//	@Tags			auth
+//	@Accept			json
+//	@Produce		json
+//	@Param			body	body		loginRequest	true	"Credenciales"
+//	@Success		200		{object}	tokenResponse
+//	@Failure		400		{object}	ErrorResponse
+//	@Failure		401		{object}	ErrorResponse
+//	@Failure		500		{object}	ErrorResponse
+//	@Router			/auth/login [post]
 func (h *AuthHandler) Login(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("Content-Type", "application/json")
 	r.Body = http.MaxBytesReader(w, r.Body, 1<<20)
