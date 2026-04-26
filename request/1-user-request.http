@@ -1,39 +1,104 @@
+# =============================================================
+# USUARIOS — /api/v1/users
+# Todas las rutas requieren Bearer JWT.
+#
+# PASO PREVIO: ejecuta POST /auth/login en auth.http,
+# copia el token de la respuesta y pégalo en @token abajo.
+# =============================================================
 
-@token = eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJleHAiOjE3NzcyODA1NzksInN1YiI6M30.Dwc2uUmPITmoSHO3fVC7WlqZ82ywc_ta1AORVUzmOSw
+@token = PEGA_AQUÍ_EL_TOKEN
+
 ###
+
+# ── Listar todos los usuarios ──────────────────────────────────────
+
 GET http://localhost:3000/api/v1/users HTTP/1.1
 Authorization: Bearer {{token}}
+
 ###
-GET http://localhost:3000/api/v1/users/2 HTTP/1.1
+
+# ── Obtener un usuario por ID ──────────────────────────────────────
+
+GET http://localhost:3000/api/v1/users/1 HTTP/1.1
 Authorization: Bearer {{token}}
+
 ###
+
+# ── Crear un usuario ───────────────────────────────────────────────
+# La contraseña se hashea con bcrypt; nunca se devuelve en la respuesta.
+
 POST http://localhost:3000/api/v1/users HTTP/1.1
 Content-Type: application/json
+Authorization: Bearer {{token}}
 
 {
-    "first_name": "tommy",
-    "last_name": "lee",
-    "email": "tommy.lee@gorilla.mux"
+    "first_name": "Tommy",
+    "last_name": "Lee",
+    "email": "tommy.lee@gorilla.mux",
+    "password": "1234567890"
 }
 
 ###
-PATCH http://localhost:3000/api/v1/users/2 HTTP/1.1
+
+# ── Crear múltiples usuarios en paralelo (worker pool) ─────────────
+# "workers" controla cuántas goroutines escriben en BD simultáneamente.
+# Responde 201 si todos tuvieron éxito, 207 Multi-Status si alguno falló.
+
+POST http://localhost:3000/api/v1/users/batch HTTP/1.1
 Content-Type: application/json
 Authorization: Bearer {{token}}
 
 {
-    "email":"tommy.lee@gorilla.mux"
+    "workers": 3,
+    "users": [
+        { "first_name": "Keanu",  "last_name": "Reeves",  "email": "keanu@gorilla.mux",  "password": "1234567890" },
+        { "first_name": "Carrie", "last_name": "Anne",    "email": "carrie@gorilla.mux", "password": "1234567890" },
+        { "first_name": "Hugo",   "last_name": "Weaving", "email": "hugo@gorilla.mux",   "password": "1234567890" }
+    ]
 }
+
 ###
-PATCH http://localhost:3000/api/v1/users/2/password HTTP/1.1
+
+# ── Actualización parcial ──────────────────────────────────────────
+# Solo los campos enviados se modifican; los omitidos no se tocan.
+# Puedes enviar cualquier combinación de: first_name, last_name, email.
+# password_hash nunca se sobreescribe por esta ruta.
+
+PATCH http://localhost:3000/api/v1/users/1 HTTP/1.1
+Content-Type: application/json
+Authorization: Bearer {{token}}
+
+{
+    "email": "ana.nuevo@gorilla.mux"
+}
+
+###
+
+# ── Cambiar contraseña ─────────────────────────────────────────────
+# Requiere la contraseña actual para verificar identidad.
+# El nuevo hash se recalcula con bcrypt.
+
+PATCH http://localhost:3000/api/v1/users/1/password HTTP/1.1
 Content-Type: application/json
 Authorization: Bearer {{token}}
 
 {
     "current_password": "1234567890",
-    "new_password": "1234567890"
+    "new_password": "nueva-clave-segura"
 }
 
 ###
+
+# ── Eliminar un usuario ────────────────────────────────────────────
+
 DELETE http://localhost:3000/api/v1/users/1 HTTP/1.1
+Authorization: Bearer {{token}}
+
+###
+
+# ── Estadísticas — conteo de usuarios y tareas en paralelo ─────────
+# Internamente usa fan-out con goroutines: las dos queries a BD
+# corren simultáneamente y el handler espera ambos resultados.
+
+GET http://localhost:3000/api/v1/stats HTTP/1.1
 Authorization: Bearer {{token}}

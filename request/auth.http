@@ -1,29 +1,48 @@
-# 1. Registro
+# =============================================================
+# AUTENTICACIÓN
+# Flujo de primer uso — ejecuta en orden:
+#
+#   1. GET  /health         → verifica que el servidor responde
+#   2. POST /auth/signup    → crea tu usuario de prueba (solo una vez)
+#   3. POST /auth/login     → obtén el JWT
+#   4. Copia el valor de "token" de la respuesta y pégalo en la
+#      variable @token al inicio de 1-user-request.http y 2-task-request.http
+#
+# Requisitos: servidor corriendo (`air` o `go run ./cmd/api`)
+#             y extensión REST Client instalada en VS Code.
+# =============================================================
+
+# ── 0. Verificar que el servidor está corriendo ────────────────────
+# Responde 200 con {"status":"ok"} si la BD también está conectada.
+
+GET http://localhost:3000/health HTTP/1.1
+
+###
+
+# ── 1. Registrar usuario ───────────────────────────────────────────
+# Solo la primera vez. Si el email ya existe recibirás 409 Conflict.
+
 POST http://localhost:3000/auth/signup HTTP/1.1
 Content-Type: application/json
 
 {
-    "email":"ana.lopez@gorilla.mux",
-    "password":"1234567890",
-    "first_name":"Ana",
-    "last_name":"López"
+    "first_name": "Ana",
+    "last_name": "López",
+    "email": "ana.lopez@gorilla.mux",
+    "password": "1234567890"
 }
 
 ###
-# 2. Login → obtener token
+
+# ── 2. Iniciar sesión → obtener JWT ───────────────────────────────
+# Ejecuta esta petición y copia el valor de "token" de la respuesta.
+# Pégalo en @token dentro de 1-user-request.http y 2-task-request.http.
+# El token expira según JWT_EXPIRY_HOURS en tu .env (por defecto 24 h).
+
 POST http://localhost:3000/auth/login HTTP/1.1
 Content-Type: application/json
 
 {
-    "email":"tommy.lee@gorilla.mux",
-    "password":"1234567890"
-}
-###
-# 2. Login → obtener token
-POST http://localhost:3000/auth/login HTTP/1.1
-Content-Type: application/json
-
-{
-    "email":"ana.lopez@gorilla.mux",
-    "password":"1234567890"
+    "email": "ana.lopez@gorilla.mux",
+    "password": "1234567890"
 }
