@@ -102,7 +102,12 @@ func main() {
 	asyncLog := middleware.NewAsyncLogger(log, 512)
 	asyncLog.Start()
 
+	// RateLimiter: token bucket per-IP; se aplica antes del logger para que
+	// los 429 también queden registrados. Configurable via RATE_LIMIT_RPS / RATE_LIMIT_BURST.
+	rateLimiter := middleware.NewRateLimiter(cfg.RateLimitRPS, cfg.RateLimitBurst)
+
 	r := mux.NewRouter()
+	r.Use(rateLimiter.Middleware())
 	r.Use(middleware.Logging(asyncLog))
 
 	r.PathPrefix("/swagger/").Handler(httpswagger.WrapHandler)
@@ -159,9 +164,8 @@ func main() {
 	}
 	log.Info("server shutdown complete")
 
-	// Orden de cierre: primero detener el servidor (ya hecho arriba),
-	// luego vaciar el canal del AsyncLogger (todos los logs pendientes se procesan),
-	// finalmente cerrar el archivo físico de logs.
+	// Orden de cierre: servidor → rate limiter → async logger → rotator de disco.
+	rateLimiter.Stop()
 	asyncLog.Stop()
 
 	if rotator != nil {

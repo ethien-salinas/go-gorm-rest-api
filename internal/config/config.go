@@ -20,10 +20,12 @@ type Config struct {
 	LogDir         string // LOG_DIR directorio para archivos de log (default: "logs")
 	JWTSecret      string // JWT_SECRET clave de firma para los tokens
 	JWTExpiryHours int    // JWT_EXPIRY_HOURS duración del token en horas (default: 24)
+	RateLimitRPS   int    // RATE_LIMIT_RPS peticiones por segundo por IP (default: 10)
+	RateLimitBurst int    // RATE_LIMIT_BURST capacidad máxima del bucket (default: 20)
 }
 
 // Load returns a [Config] populated from environment variables.
-// PORT defaults to "3000", LOG_DIR to "logs" and JWT_EXPIRY_HOURS to 24 if not set.
+// Defaults: PORT=3000, LOG_DIR=logs, JWT_EXPIRY_HOURS=24, RATE_LIMIT_RPS=10, RATE_LIMIT_BURST=20.
 func Load() Config {
 	return Config{
 		DBHost:         os.Getenv("DB_HOST"),
@@ -38,6 +40,8 @@ func Load() Config {
 		LogDir:         envOrDefault("LOG_DIR", "logs"),
 		JWTSecret:      os.Getenv("JWT_SECRET"),
 		JWTExpiryHours: envIntOrDefault("JWT_EXPIRY_HOURS", 24),
+		RateLimitRPS:   envIntOrDefault("RATE_LIMIT_RPS", 10),
+		RateLimitBurst: envIntOrDefault("RATE_LIMIT_BURST", 20),
 	}
 }
 
