@@ -24,8 +24,8 @@ REST API en Go con GORM y PostgreSQL. Implementa CRUD de usuarios y tareas con a
 
 | Herramienta | Rol en el proyecto |
 |---|---|
-| **Go 1.21+** | Lenguaje principal |
-| **[Gorilla Mux](https://github.com/gorilla/mux)** | Router HTTP |
+| **Go 1.22+** | Lenguaje principal |
+| **net/http** | Router HTTP (stdlib, Go 1.22+) |
 | **[GORM](https://gorm.io/)** | ORM para PostgreSQL |
 | **PostgreSQL** | Base de datos relacional |
 | **Docker Compose** | Levanta la BD y Adminer localmente |
@@ -71,7 +71,7 @@ go-gorm-rest-api/
 
 ## 3. Requisitos previos
 
-- [Go 1.21+](https://go.dev/dl/) — verifica con `go version`
+- [Go 1.22+](https://go.dev/dl/) — verifica con `go version`
 - [Docker Desktop](https://www.docker.com/) — para levantar PostgreSQL y Adminer
 - [Air](https://github.com/air-verse/air) _(opcional)_ — hot reload
 
@@ -264,7 +264,7 @@ main.go
   └─> database.Connect()      # abre conexión GORM
   └─> repository.New*()       # capa de acceso a datos
   └─> handlers.New*()         # handlers HTTP
-  └─> mux.Router              # registro de rutas
+  └─> http.ServeMux           # registro de rutas con chain() middleware
   └─> http.Server             # arranca el servidor
 ```
 

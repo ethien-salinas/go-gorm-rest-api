@@ -39,7 +39,7 @@ POST /auth/signup    POST /auth/login          ← públicas
 
 — /api/v1 requiere Bearer JWT —
 GET/POST        /api/v1/users
-POST            /api/v1/users/batch            ← registrar ANTES de /{id}
+POST            /api/v1/users/batch            ← precede a /{id} automáticamente (net/http 1.22+)
 GET/PATCH/DELETE /api/v1/users/{id}
 PATCH           /api/v1/users/{id}/password
 GET/POST        /api/v1/tasks
@@ -53,7 +53,7 @@ GET             /api/v1/stats
 1. Modelo en `internal/models/` — campos explícitos, sin `gorm.Model`, json tags snake_case
 2. Repositorio en `internal/repository/` — `FindAll`, `FindByID`, `Create`, `Update(ctx, entity, map[string]any)`, `Delete`
 3. Handler en `internal/handlers/` — definir la interfaz del repo en el mismo archivo, luego struct + constructor + métodos
-4. Registrar rutas en `cmd/api/main.go` bajo el subrouter `/api/v1`
+4. Registrar rutas en `cmd/api/main.go` — rutas protegidas con `chain(http.HandlerFunc(...), protected...)`, públicas con `chain(..., global...)`
 
 **PATCH parcial:** los DTOs usan `*string`/`*bool` — nil significa campo no enviado. Construir `map[string]any` con solo los campos no-nil y pasarlo a `repo.Update`; retornar 400 si el map queda vacío. GORM genera `UPDATE … SET col=val` solo para esas columnas; `password_hash` y asociaciones no se tocan.
 
