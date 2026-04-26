@@ -14,6 +14,7 @@ import (
 	"net/http"
 	"os"
 	"os/signal"
+	"sync"
 	"syscall"
 	"time"
 
@@ -28,6 +29,7 @@ import (
 	"github.com/gorilla/mux"
 	"github.com/joho/godotenv"
 	httpswagger "github.com/swaggo/http-swagger"
+	"gorm.io/gorm"
 )
 
 func main() {
@@ -39,13 +41,44 @@ func main() {
 
 	cfg := config.Load()
 
-	log, rotator, err := applogger.NewLogger(cfg.LogToFile, cfg.LogDir)
-	if err != nil {
-		bootstrap.Error("failed to initialize logger", "error", err)
+	// Bootstrap paralelo: logger y DB son IO independientes; se inician en paralelo
+	// con sync.WaitGroup. La ganancia de latencia es mínima (disco local vs red),
+	// pero el patrón es fundamental en Go: lanzar goroutines para trabajo independiente
+	// y sincronizar con wg.Wait() antes de usar los resultados.
+	var (
+		log     *slog.Logger
+		rotator *applogger.DailyRotator
+		db      *gorm.DB
+		logErr  error
+		dbErr   error
+	)
+
+	var wg sync.WaitGroup
+	wg.Add(2)
+
+	go func() {
+		defer wg.Done()
+		log, rotator, logErr = applogger.NewLogger(cfg.LogToFile, cfg.LogDir)
+	}()
+
+	go func() {
+		defer wg.Done()
+		// database.Connect retorna error en lugar de llamar os.Exit,
+		// delegando la decisión de terminar al caller (main).
+		db, dbErr = database.Connect(cfg, bootstrap)
+	}()
+
+	wg.Wait() // esperar a que AMBAS goroutines terminen antes de leer las variables
+
+	if logErr != nil {
+		bootstrap.Error("failed to initialize logger", "error", logErr)
+		os.Exit(1)
+	}
+	if dbErr != nil {
+		bootstrap.Error("failed to connect to database", "error", dbErr)
 		os.Exit(1)
 	}
 
-	db := database.Connect(cfg, log)
 	if cfg.AutoMigrate {
 		db.AutoMigrate(&models.User{}, &models.Task{})
 	}
