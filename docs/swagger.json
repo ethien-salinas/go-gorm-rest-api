@@ -138,63 +138,6 @@
                     }
                 }
             },
-            "put": {
-                "description": "Reemplaza los campos de la tarea identificada por {id}.",
-                "consumes": [
-                    "application/json"
-                ],
-                "produces": [
-                    "application/json"
-                ],
-                "tags": [
-                    "tasks"
-                ],
-                "summary": "Actualizar tarea",
-                "parameters": [
-                    {
-                        "type": "integer",
-                        "description": "ID de la tarea",
-                        "name": "id",
-                        "in": "path",
-                        "required": true
-                    },
-                    {
-                        "description": "Nuevos datos de la tarea",
-                        "name": "task",
-                        "in": "body",
-                        "required": true,
-                        "schema": {
-                            "$ref": "#/definitions/internal_handlers.UpdateTaskRequest"
-                        }
-                    }
-                ],
-                "responses": {
-                    "200": {
-                        "description": "OK",
-                        "schema": {
-                            "$ref": "#/definitions/github_com_ethien-salinas_go-gorm-rest-api_internal_models.Task"
-                        }
-                    },
-                    "400": {
-                        "description": "Bad Request",
-                        "schema": {
-                            "$ref": "#/definitions/internal_handlers.ErrorResponse"
-                        }
-                    },
-                    "404": {
-                        "description": "Not Found",
-                        "schema": {
-                            "$ref": "#/definitions/internal_handlers.ErrorResponse"
-                        }
-                    },
-                    "500": {
-                        "description": "Internal Server Error",
-                        "schema": {
-                            "$ref": "#/definitions/internal_handlers.ErrorResponse"
-                        }
-                    }
-                }
-            },
             "delete": {
                 "description": "Realiza un soft-delete de la tarea identificada por {id}.",
                 "produces": [
@@ -218,6 +161,63 @@
                         "description": "OK",
                         "schema": {
                             "$ref": "#/definitions/github_com_ethien-salinas_go-gorm-rest-api_internal_models.Task"
+                        }
+                    },
+                    "404": {
+                        "description": "Not Found",
+                        "schema": {
+                            "$ref": "#/definitions/internal_handlers.ErrorResponse"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "$ref": "#/definitions/internal_handlers.ErrorResponse"
+                        }
+                    }
+                }
+            },
+            "patch": {
+                "description": "Actualiza solo los campos enviados en el body de la tarea identificada por {id}.",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "tasks"
+                ],
+                "summary": "Actualizar tarea (parcial)",
+                "parameters": [
+                    {
+                        "type": "integer",
+                        "description": "ID de la tarea",
+                        "name": "id",
+                        "in": "path",
+                        "required": true
+                    },
+                    {
+                        "description": "Campos a actualizar",
+                        "name": "task",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/internal_handlers.updateTaskRequest"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/github_com_ethien-salinas_go-gorm-rest-api_internal_models.Task"
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "$ref": "#/definitions/internal_handlers.ErrorResponse"
                         }
                     },
                     "404": {
@@ -342,8 +342,47 @@
                     }
                 }
             },
-            "put": {
-                "description": "Reemplaza los campos del usuario identificado por {id}.",
+            "delete": {
+                "description": "Realiza un soft-delete del usuario identificado por {id}.",
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "users"
+                ],
+                "summary": "Eliminar usuario",
+                "parameters": [
+                    {
+                        "type": "integer",
+                        "description": "ID del usuario",
+                        "name": "id",
+                        "in": "path",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/github_com_ethien-salinas_go-gorm-rest-api_internal_models.User"
+                        }
+                    },
+                    "404": {
+                        "description": "Not Found",
+                        "schema": {
+                            "$ref": "#/definitions/internal_handlers.ErrorResponse"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "$ref": "#/definitions/internal_handlers.ErrorResponse"
+                        }
+                    }
+                }
+            },
+            "patch": {
+                "description": "Actualiza solo los campos enviados en el body del usuario identificado por {id}.",
                 "consumes": [
                     "application/json"
                 ],
@@ -353,7 +392,7 @@
                 "tags": [
                     "users"
                 ],
-                "summary": "Actualizar usuario",
+                "summary": "Actualizar usuario (parcial)",
                 "parameters": [
                     {
                         "type": "integer",
@@ -363,12 +402,12 @@
                         "required": true
                     },
                     {
-                        "description": "Nuevos datos del usuario",
+                        "description": "Campos a actualizar",
                         "name": "user",
                         "in": "body",
                         "required": true,
                         "schema": {
-                            "$ref": "#/definitions/internal_handlers.UpdateUserRequest"
+                            "$ref": "#/definitions/internal_handlers.updateUserRequest"
                         }
                     }
                 ],
@@ -398,16 +437,18 @@
                         }
                     }
                 }
-            },
-            "delete": {
-                "description": "Realiza un soft-delete del usuario identificado por {id}.",
-                "produces": [
+            }
+        },
+        "/api/v1/users/{id}/password": {
+            "patch": {
+                "description": "Verifica la contraseña actual y la reemplaza con la nueva.",
+                "consumes": [
                     "application/json"
                 ],
                 "tags": [
                     "users"
                 ],
-                "summary": "Eliminar usuario",
+                "summary": "Cambiar contraseña",
                 "parameters": [
                     {
                         "type": "integer",
@@ -415,17 +456,134 @@
                         "name": "id",
                         "in": "path",
                         "required": true
+                    },
+                    {
+                        "description": "Contraseñas",
+                        "name": "body",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/internal_handlers.changePasswordRequest"
+                        }
+                    }
+                ],
+                "responses": {
+                    "204": {
+                        "description": "No Content"
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "$ref": "#/definitions/internal_handlers.ErrorResponse"
+                        }
+                    },
+                    "401": {
+                        "description": "Unauthorized",
+                        "schema": {
+                            "$ref": "#/definitions/internal_handlers.ErrorResponse"
+                        }
+                    },
+                    "404": {
+                        "description": "Not Found",
+                        "schema": {
+                            "$ref": "#/definitions/internal_handlers.ErrorResponse"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "$ref": "#/definitions/internal_handlers.ErrorResponse"
+                        }
+                    }
+                }
+            }
+        },
+        "/auth/login": {
+            "post": {
+                "description": "Verifica email y contraseña; devuelve un JWT Bearer token firmado con HS256.",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "auth"
+                ],
+                "summary": "Inicio de sesión",
+                "parameters": [
+                    {
+                        "description": "Credenciales",
+                        "name": "body",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/internal_handlers.loginRequest"
+                        }
                     }
                 ],
                 "responses": {
                     "200": {
                         "description": "OK",
                         "schema": {
-                            "$ref": "#/definitions/github_com_ethien-salinas_go-gorm-rest-api_internal_models.User"
+                            "$ref": "#/definitions/internal_handlers.tokenResponse"
                         }
                     },
-                    "404": {
-                        "description": "Not Found",
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "$ref": "#/definitions/internal_handlers.ErrorResponse"
+                        }
+                    },
+                    "401": {
+                        "description": "Unauthorized",
+                        "schema": {
+                            "$ref": "#/definitions/internal_handlers.ErrorResponse"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "$ref": "#/definitions/internal_handlers.ErrorResponse"
+                        }
+                    }
+                }
+            }
+        },
+        "/auth/signup": {
+            "post": {
+                "description": "Crea una nueva cuenta con email y contraseña hasheada con bcrypt.",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "auth"
+                ],
+                "summary": "Registro de usuario",
+                "parameters": [
+                    {
+                        "description": "Datos de registro",
+                        "name": "body",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/internal_handlers.signupRequest"
+                        }
+                    }
+                ],
+                "responses": {
+                    "201": {
+                        "description": "Created",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": true
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
                         "schema": {
                             "$ref": "#/definitions/internal_handlers.ErrorResponse"
                         }
@@ -573,34 +731,6 @@
                 }
             }
         },
-        "internal_handlers.UpdateTaskRequest": {
-            "type": "object",
-            "properties": {
-                "description": {
-                    "type": "string"
-                },
-                "done": {
-                    "type": "boolean"
-                },
-                "title": {
-                    "type": "string"
-                }
-            }
-        },
-        "internal_handlers.UpdateUserRequest": {
-            "type": "object",
-            "properties": {
-                "email": {
-                    "type": "string"
-                },
-                "first_name": {
-                    "type": "string"
-                },
-                "last_name": {
-                    "type": "string"
-                }
-            }
-        },
         "internal_handlers.apiInfo": {
             "type": "object",
             "properties": {
@@ -620,6 +750,81 @@
                     "type": "string"
                 },
                 "version": {
+                    "type": "string"
+                }
+            }
+        },
+        "internal_handlers.changePasswordRequest": {
+            "type": "object",
+            "properties": {
+                "current_password": {
+                    "type": "string"
+                },
+                "new_password": {
+                    "type": "string"
+                }
+            }
+        },
+        "internal_handlers.loginRequest": {
+            "type": "object",
+            "properties": {
+                "email": {
+                    "type": "string"
+                },
+                "password": {
+                    "type": "string"
+                }
+            }
+        },
+        "internal_handlers.signupRequest": {
+            "type": "object",
+            "properties": {
+                "email": {
+                    "type": "string"
+                },
+                "first_name": {
+                    "type": "string"
+                },
+                "last_name": {
+                    "type": "string"
+                },
+                "password": {
+                    "type": "string"
+                }
+            }
+        },
+        "internal_handlers.tokenResponse": {
+            "type": "object",
+            "properties": {
+                "token": {
+                    "type": "string"
+                }
+            }
+        },
+        "internal_handlers.updateTaskRequest": {
+            "type": "object",
+            "properties": {
+                "description": {
+                    "type": "string"
+                },
+                "done": {
+                    "type": "boolean"
+                },
+                "title": {
+                    "type": "string"
+                }
+            }
+        },
+        "internal_handlers.updateUserRequest": {
+            "type": "object",
+            "properties": {
+                "email": {
+                    "type": "string"
+                },
+                "first_name": {
+                    "type": "string"
+                },
+                "last_name": {
                     "type": "string"
                 }
             }

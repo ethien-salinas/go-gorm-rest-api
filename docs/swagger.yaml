@@ -75,24 +75,6 @@ definitions:
       error:
         type: string
     type: object
-  internal_handlers.UpdateTaskRequest:
-    properties:
-      description:
-        type: string
-      done:
-        type: boolean
-      title:
-        type: string
-    type: object
-  internal_handlers.UpdateUserRequest:
-    properties:
-      email:
-        type: string
-      first_name:
-        type: string
-      last_name:
-        type: string
-    type: object
   internal_handlers.apiInfo:
     properties:
       docs:
@@ -106,6 +88,54 @@ definitions:
       timestamp:
         type: string
       version:
+        type: string
+    type: object
+  internal_handlers.changePasswordRequest:
+    properties:
+      current_password:
+        type: string
+      new_password:
+        type: string
+    type: object
+  internal_handlers.loginRequest:
+    properties:
+      email:
+        type: string
+      password:
+        type: string
+    type: object
+  internal_handlers.signupRequest:
+    properties:
+      email:
+        type: string
+      first_name:
+        type: string
+      last_name:
+        type: string
+      password:
+        type: string
+    type: object
+  internal_handlers.tokenResponse:
+    properties:
+      token:
+        type: string
+    type: object
+  internal_handlers.updateTaskRequest:
+    properties:
+      description:
+        type: string
+      done:
+        type: boolean
+      title:
+        type: string
+    type: object
+  internal_handlers.updateUserRequest:
+    properties:
+      email:
+        type: string
+      first_name:
+        type: string
+      last_name:
         type: string
     type: object
 host: localhost:3000
@@ -226,22 +256,23 @@ paths:
       summary: Obtener tarea por ID
       tags:
       - tasks
-    put:
+    patch:
       consumes:
       - application/json
-      description: Reemplaza los campos de la tarea identificada por {id}.
+      description: Actualiza solo los campos enviados en el body de la tarea identificada
+        por {id}.
       parameters:
       - description: ID de la tarea
         in: path
         name: id
         required: true
         type: integer
-      - description: Nuevos datos de la tarea
+      - description: Campos a actualizar
         in: body
         name: task
         required: true
         schema:
-          $ref: '#/definitions/internal_handlers.UpdateTaskRequest'
+          $ref: '#/definitions/internal_handlers.updateTaskRequest'
       produces:
       - application/json
       responses:
@@ -261,7 +292,7 @@ paths:
           description: Internal Server Error
           schema:
             $ref: '#/definitions/internal_handlers.ErrorResponse'
-      summary: Actualizar tarea
+      summary: Actualizar tarea (parcial)
       tags:
       - tasks
   /api/v1/users:
@@ -361,22 +392,23 @@ paths:
       summary: Obtener usuario por ID
       tags:
       - users
-    put:
+    patch:
       consumes:
       - application/json
-      description: Reemplaza los campos del usuario identificado por {id}.
+      description: Actualiza solo los campos enviados en el body del usuario identificado
+        por {id}.
       parameters:
       - description: ID del usuario
         in: path
         name: id
         required: true
         type: integer
-      - description: Nuevos datos del usuario
+      - description: Campos a actualizar
         in: body
         name: user
         required: true
         schema:
-          $ref: '#/definitions/internal_handlers.UpdateUserRequest'
+          $ref: '#/definitions/internal_handlers.updateUserRequest'
       produces:
       - application/json
       responses:
@@ -396,9 +428,114 @@ paths:
           description: Internal Server Error
           schema:
             $ref: '#/definitions/internal_handlers.ErrorResponse'
-      summary: Actualizar usuario
+      summary: Actualizar usuario (parcial)
       tags:
       - users
+  /api/v1/users/{id}/password:
+    patch:
+      consumes:
+      - application/json
+      description: Verifica la contraseña actual y la reemplaza con la nueva.
+      parameters:
+      - description: ID del usuario
+        in: path
+        name: id
+        required: true
+        type: integer
+      - description: Contraseñas
+        in: body
+        name: body
+        required: true
+        schema:
+          $ref: '#/definitions/internal_handlers.changePasswordRequest'
+      responses:
+        "204":
+          description: No Content
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/internal_handlers.ErrorResponse'
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/internal_handlers.ErrorResponse'
+        "404":
+          description: Not Found
+          schema:
+            $ref: '#/definitions/internal_handlers.ErrorResponse'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/internal_handlers.ErrorResponse'
+      summary: Cambiar contraseña
+      tags:
+      - users
+  /auth/login:
+    post:
+      consumes:
+      - application/json
+      description: Verifica email y contraseña; devuelve un JWT Bearer token firmado
+        con HS256.
+      parameters:
+      - description: Credenciales
+        in: body
+        name: body
+        required: true
+        schema:
+          $ref: '#/definitions/internal_handlers.loginRequest'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/internal_handlers.tokenResponse'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/internal_handlers.ErrorResponse'
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/internal_handlers.ErrorResponse'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/internal_handlers.ErrorResponse'
+      summary: Inicio de sesión
+      tags:
+      - auth
+  /auth/signup:
+    post:
+      consumes:
+      - application/json
+      description: Crea una nueva cuenta con email y contraseña hasheada con bcrypt.
+      parameters:
+      - description: Datos de registro
+        in: body
+        name: body
+        required: true
+        schema:
+          $ref: '#/definitions/internal_handlers.signupRequest'
+      produces:
+      - application/json
+      responses:
+        "201":
+          description: Created
+          schema:
+            additionalProperties: true
+            type: object
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/internal_handlers.ErrorResponse'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/internal_handlers.ErrorResponse'
+      summary: Registro de usuario
+      tags:
+      - auth
   /health:
     get:
       description: Responde 200 si la base de datos está accesible, 503 si no.
