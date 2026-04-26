@@ -45,8 +45,7 @@ func (a *AsyncLogger) Start() {
 }
 
 // Send enqueues a log entry without blocking. If the channel is full, the entry
-// is silently dropped (fire-and-forget). This non-blocking select/default idiom
-// evita que el goroutine del request HTTP quede bloqueado esperando al worker de logs.
+// is silently dropped to avoid stalling the request goroutine while the log worker catches up.
 func (a *AsyncLogger) Send(level slog.Level, msg string, args ...any) {
 	entry := LogEntry{level: level, msg: msg, args: args}
 	select {
@@ -57,8 +56,8 @@ func (a *AsyncLogger) Send(level slog.Level, msg string, args ...any) {
 	}
 }
 
-// Stop cierra el canal y espera a que el worker drene todas las entradas pendientes.
-// Debe llamarse después de que no haya más productores (e.g., tras srv.Shutdown).
+// Stop closes the channel and waits for the worker to drain all pending entries.
+// It must be called after all producers have stopped (e.g., after srv.Shutdown).
 func (a *AsyncLogger) Stop() {
 	close(a.ch) // señala al worker que no habrá más entradas
 	<-a.done    // espera a que el worker termine de procesar las que quedan
