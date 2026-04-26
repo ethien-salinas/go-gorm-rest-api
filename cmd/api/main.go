@@ -95,8 +95,13 @@ func main() {
 	userHandler := handlers.NewUserHandler(userRepo, log)
 	taskHandler := handlers.NewTaskHandler(taskRepo, log)
 
+	// AsyncLogger: envía logs al canal sin bloquear el goroutine del request.
+	// El worker goroutine los escribe a slog desde su propio goroutine.
+	asyncLog := middleware.NewAsyncLogger(log, 512)
+	asyncLog.Start()
+
 	r := mux.NewRouter()
-	r.Use(middleware.Logging(log))
+	r.Use(middleware.Logging(asyncLog))
 
 	r.PathPrefix("/swagger/").Handler(httpswagger.WrapHandler)
 	r.HandleFunc("/", handlers.HomeHandler).Methods("GET")
@@ -143,6 +148,11 @@ func main() {
 		os.Exit(1)
 	}
 	log.Info("server shutdown complete")
+
+	// Orden de cierre: primero detener el servidor (ya hecho arriba),
+	// luego vaciar el canal del AsyncLogger (todos los logs pendientes se procesan),
+	// finalmente cerrar el archivo físico de logs.
+	asyncLog.Stop()
 
 	if rotator != nil {
 		if err := rotator.Close(); err != nil {

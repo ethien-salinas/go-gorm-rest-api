@@ -18,13 +18,14 @@ func (rw *responseWriter) WriteHeader(status int) {
 }
 
 // Logging returns middleware that logs the method, path, status code, and latency of each request.
-func Logging(logger *slog.Logger) func(http.Handler) http.Handler {
+// Acepta un [AsyncLogger] para que la escritura de logs no bloquee el goroutine del request.
+func Logging(logger *AsyncLogger) func(http.Handler) http.Handler {
 	return func(next http.Handler) http.Handler {
 		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 			start := time.Now()
 			wrapped := &responseWriter{ResponseWriter: w, status: http.StatusOK}
 
-			logger.Info("request received",
+			logger.Send(slog.LevelInfo, "request received",
 				"method", r.Method,
 				"path", r.URL.Path,
 				"remote_addr", r.RemoteAddr,
@@ -32,7 +33,7 @@ func Logging(logger *slog.Logger) func(http.Handler) http.Handler {
 
 			next.ServeHTTP(wrapped, r)
 
-			logger.Info("request completed",
+			logger.Send(slog.LevelInfo, "request completed",
 				"method", r.Method,
 				"path", r.URL.Path,
 				"status", wrapped.status,

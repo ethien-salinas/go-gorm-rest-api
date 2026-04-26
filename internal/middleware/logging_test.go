@@ -11,7 +11,11 @@ import (
 )
 
 func TestLogging(t *testing.T) {
-	logger := slog.New(slog.NewTextHandler(io.Discard, nil))
+	slogger := slog.New(slog.NewTextHandler(io.Discard, nil))
+	asyncLog := NewAsyncLogger(slogger, 16)
+	asyncLog.Start()
+	defer asyncLog.Stop()
+
 	called := false
 
 	next := http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
@@ -22,7 +26,7 @@ func TestLogging(t *testing.T) {
 	req := httptest.NewRequest(http.MethodGet, "/test", nil)
 	w := httptest.NewRecorder()
 
-	Logging(logger)(next).ServeHTTP(w, req)
+	Logging(asyncLog)(next).ServeHTTP(w, req)
 
 	assert.True(t, called, "next handler should be called")
 	assert.Equal(t, http.StatusCreated, w.Code)
