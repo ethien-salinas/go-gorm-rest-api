@@ -1,4 +1,13 @@
-// Package password provides the application-wide password policy (PCI DSS v4.0 + NIST SP 800-63B).
+// Package password implements the application-wide password policy.
+//
+// Rules enforced (PCI DSS v4.0 + NIST SP 800-63B):
+//   - Minimum 12 characters, maximum 128 characters.
+//   - Must contain at least one uppercase letter, one lowercase letter, one digit, and one special character.
+//   - Must not match any entry in the embedded common-passwords list.
+//   - Must not contain the local part of the user's email address.
+//
+// The package also exports [BcryptCost], the work factor used throughout the application
+// when calling bcrypt.GenerateFromPassword.
 package password
 
 import (
@@ -32,9 +41,11 @@ func loadCommon() {
 	})
 }
 
-// Validate checks password against the financial-grade policy rules.
-// Returns a slice of all violated rules in Spanish; an empty slice means the password is acceptable.
-// email is used to detect whether the password contains the local part of the email address.
+// Validate checks password against every rule in the financial-grade policy and
+// returns a slice of all violations in Spanish.
+// An empty slice means the password is acceptable.
+// The email parameter is used to detect whether the password embeds the local part
+// (the portion before "@") of the user's email address.
 func Validate(password, email string) []string {
 	loadCommon()
 
