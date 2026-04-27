@@ -79,7 +79,7 @@ func main() {
 	}
 
 	if cfg.AutoMigrate {
-		db.AutoMigrate(&models.User{}, &models.Task{})
+		db.AutoMigrate(&models.User{}, &models.Task{}, &models.PasswordHistory{})
 	}
 
 	sqlDB, err := db.DB()
@@ -90,11 +90,20 @@ func main() {
 
 	userRepo := repository.NewUserRepository(db, log)
 	taskRepo := repository.NewTaskRepository(db, log)
+	passwordHistoryRepo := repository.NewPasswordHistoryRepository(db, log)
 
-	userHandler := handlers.NewUserHandler(userRepo, log)
+	userHandler := handlers.NewUserHandler(userRepo, passwordHistoryRepo, cfg.PasswordHistoryCount, log)
 	taskHandler := handlers.NewTaskHandler(taskRepo, log)
 	statsHandler := handlers.NewStatsHandler(userRepo, taskRepo, log)
-	authHandler := handlers.NewAuthHandler(userRepo, cfg.JWTSecret, cfg.JWTExpiryHours, log)
+	authHandler := handlers.NewAuthHandler(
+		userRepo,
+		passwordHistoryRepo,
+		cfg.JWTSecret,
+		cfg.JWTExpiryHours,
+		cfg.AccountLockoutThreshold,
+		cfg.AccountLockoutDurationMinutes,
+		log,
+	)
 
 	// AsyncLogger: envía logs al canal sin bloquear el goroutine del request.
 	// El worker goroutine los escribe a slog desde su propio goroutine.

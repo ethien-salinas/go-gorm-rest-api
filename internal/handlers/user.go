@@ -5,9 +5,11 @@ import (
 	"encoding/json"
 	"log/slog"
 	"net/http"
+	"time"
 
 	"github.com/ethien-salinas/go-gorm-rest-api/internal/middleware"
 	"github.com/ethien-salinas/go-gorm-rest-api/internal/models"
+	"github.com/ethien-salinas/go-gorm-rest-api/internal/password"
 	"golang.org/x/crypto/bcrypt"
 )
 
@@ -21,15 +23,24 @@ type UserRepository interface {
 	BatchCreate(ctx context.Context, users []*models.User, workers int) []error
 }
 
+// PasswordHistoryRepository defines the data-access operations for password history
+// needed by [UserHandler].
+type PasswordHistoryRepository interface {
+	Create(ctx context.Context, h *models.PasswordHistory) error
+	FindRecentByUserID(ctx context.Context, userID uint, limit int) ([]models.PasswordHistory, error)
+}
+
 // UserHandler handles HTTP requests for the /api/v1/users resource.
 type UserHandler struct {
-	repo   UserRepository
-	logger *slog.Logger
+	repo         UserRepository
+	historyRepo  PasswordHistoryRepository
+	historyCount int
+	logger       *slog.Logger
 }
 
 // NewUserHandler returns a [UserHandler] that delegates persistence to repo.
-func NewUserHandler(repo UserRepository, logger *slog.Logger) *UserHandler {
-	return &UserHandler{repo: repo, logger: logger}
+func NewUserHandler(repo UserRepository, historyRepo PasswordHistoryRepository, historyCount int, logger *slog.Logger) *UserHandler {
+	return &UserHandler{repo: repo, historyRepo: historyRepo, historyCount: historyCount, logger: logger}
 }
 
 // GetAll writes a JSON array of all users to the response.
@@ -279,17 +290,48 @@ func (h *UserHandler) ChangePassword(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	newHash, err := bcrypt.GenerateFromPassword([]byte(req.NewPassword), bcrypt.DefaultCost)
+	if violations := password.Validate(req.NewPassword, user.Email); len(violations) > 0 {
+		writeValidationErrors(w, violations)
+		return
+	}
+
+	history, err := h.historyRepo.FindRecentByUserID(r.Context(), user.ID, h.historyCount)
+	if err != nil {
+		h.logger.Error("handler: failed to fetch password history", "id", user.ID, "error", err)
+		writeError(w, http.StatusInternalServerError, "error al procesar la solicitud")
+		return
+	}
+	for _, entry := range history {
+		if bcrypt.CompareHashAndPassword([]byte(entry.PasswordHash), []byte(req.NewPassword)) == nil {
+			writeError(w, http.StatusBadRequest, "la nueva contraseña no puede ser igual a una contraseña usada recientemente")
+			return
+		}
+	}
+
+	newHash, err := bcrypt.GenerateFromPassword([]byte(req.NewPassword), password.BcryptCost)
 	if err != nil {
 		h.logger.Error("handler: failed to hash new password", "error", err)
 		writeError(w, http.StatusInternalServerError, "error al procesar la solicitud")
 		return
 	}
 
-	if err := h.repo.Update(r.Context(), &user, map[string]any{"password_hash": string(newHash)}); err != nil {
+	if err := h.repo.Update(r.Context(), &user, map[string]any{
+		"password_hash":       string(newHash),
+		"password_changed_at": time.Now(),
+		"failed_login_count":  0,
+		"locked_until":        nil,
+	}); err != nil {
 		h.logger.Error("handler: failed to update password", "id", user.ID, "error", err)
 		writeError(w, http.StatusInternalServerError, "error al actualizar la contraseña")
 		return
+	}
+
+	if err := h.historyRepo.Create(r.Context(), &models.PasswordHistory{
+		UserID:       user.ID,
+		PasswordHash: string(newHash),
+	}); err != nil {
+		h.logger.Error("handler: failed to persist password history", "id", user.ID, "error", err)
+		// Non-fatal: password was already updated
 	}
 
 	h.logger.Info("password changed", "id", user.ID)

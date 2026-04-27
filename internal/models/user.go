@@ -18,6 +18,9 @@ type User struct {
 	FirstName    string `gorm:"size:100;not null"              json:"first_name"`
 	LastName     string `gorm:"size:100;not null"              json:"last_name"`
 	Email        string `gorm:"size:100;not null;uniqueIndex"  json:"email"`
-	PasswordHash string `gorm:"size:255;not null;default:''"   json:"-"` // bcrypt hash; never serialized
-	Tasks        []Task `gorm:"foreignKey:UserID"              json:"tasks"`
+	PasswordHash      string     `gorm:"size:255;not null;default:''"   json:"-"` // bcrypt hash; never serialized
+	PasswordChangedAt time.Time  `gorm:"not null;default:now()"         json:"-"` // tracks expiration policy
+	FailedLoginCount  int        `gorm:"not null;default:0"             json:"-"` // resets on successful login
+	LockedUntil       *time.Time `gorm:"default:null"                   json:"-"` // nil = not locked
+	Tasks             []Task     `gorm:"foreignKey:UserID"              json:"tasks"`
 }

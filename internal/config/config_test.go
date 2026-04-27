@@ -6,7 +6,14 @@ import (
 	"github.com/stretchr/testify/assert"
 )
 
+// passwordPolicyDefaults returns the default password-policy values shared across test cases.
+func passwordPolicyDefaults() (int, int, int, int) {
+	return 12, 90, 5, 30
+}
+
 func TestLoad(t *testing.T) {
+	histCount, maxAge, lockThreshold, lockDuration := passwordPolicyDefaults()
+
 	tests := []struct {
 		name string
 		env  map[string]string
@@ -37,6 +44,11 @@ func TestLoad(t *testing.T) {
 				JWTExpiryHours: 24,
 				RateLimitRPS:   10,
 				RateLimitBurst: 20,
+
+				PasswordHistoryCount:          histCount,
+				PasswordMaxAgeDays:            maxAge,
+				AccountLockoutThreshold:       lockThreshold,
+				AccountLockoutDurationMinutes: lockDuration,
 			},
 		},
 		{
@@ -50,6 +62,11 @@ func TestLoad(t *testing.T) {
 				JWTExpiryHours: 24,
 				RateLimitRPS:   10,
 				RateLimitBurst: 20,
+
+				PasswordHistoryCount:          histCount,
+				PasswordMaxAgeDays:            maxAge,
+				AccountLockoutThreshold:       lockThreshold,
+				AccountLockoutDurationMinutes: lockDuration,
 			},
 		},
 		{
@@ -65,6 +82,11 @@ func TestLoad(t *testing.T) {
 				JWTExpiryHours: 24,
 				RateLimitRPS:   10,
 				RateLimitBurst: 20,
+
+				PasswordHistoryCount:          histCount,
+				PasswordMaxAgeDays:            maxAge,
+				AccountLockoutThreshold:       lockThreshold,
+				AccountLockoutDurationMinutes: lockDuration,
 			},
 		},
 		{
@@ -81,6 +103,11 @@ func TestLoad(t *testing.T) {
 				JWTExpiryHours: 24,
 				RateLimitRPS:   10,
 				RateLimitBurst: 20,
+
+				PasswordHistoryCount:          histCount,
+				PasswordMaxAgeDays:            maxAge,
+				AccountLockoutThreshold:       lockThreshold,
+				AccountLockoutDurationMinutes: lockDuration,
 			},
 		},
 		{
@@ -95,6 +122,11 @@ func TestLoad(t *testing.T) {
 				JWTExpiryHours: 24,
 				RateLimitRPS:   10,
 				RateLimitBurst: 20,
+
+				PasswordHistoryCount:          histCount,
+				PasswordMaxAgeDays:            maxAge,
+				AccountLockoutThreshold:       lockThreshold,
+				AccountLockoutDurationMinutes: lockDuration,
 			},
 		},
 		{
@@ -111,6 +143,11 @@ func TestLoad(t *testing.T) {
 				JWTExpiryHours: 48,
 				RateLimitRPS:   10,
 				RateLimitBurst: 20,
+
+				PasswordHistoryCount:          histCount,
+				PasswordMaxAgeDays:            maxAge,
+				AccountLockoutThreshold:       lockThreshold,
+				AccountLockoutDurationMinutes: lockDuration,
 			},
 		},
 		{
@@ -126,6 +163,33 @@ func TestLoad(t *testing.T) {
 				JWTExpiryHours: 24,
 				RateLimitRPS:   5,
 				RateLimitBurst: 10,
+
+				PasswordHistoryCount:          histCount,
+				PasswordMaxAgeDays:            maxAge,
+				AccountLockoutThreshold:       lockThreshold,
+				AccountLockoutDurationMinutes: lockDuration,
+			},
+		},
+		{
+			name: "password policy fields set",
+			env: map[string]string{
+				"PASSWORD_HISTORY_COUNT":          "6",
+				"PASSWORD_MAX_AGE_DAYS":           "60",
+				"ACCOUNT_LOCKOUT_THRESHOLD":       "3",
+				"ACCOUNT_LOCKOUT_DURATION_MINUTES": "15",
+				"PORT":                            "",
+			},
+			want: Config{
+				Port:           "3000",
+				LogDir:         "logs",
+				JWTExpiryHours: 24,
+				RateLimitRPS:   10,
+				RateLimitBurst: 20,
+
+				PasswordHistoryCount:          6,
+				PasswordMaxAgeDays:            60,
+				AccountLockoutThreshold:       3,
+				AccountLockoutDurationMinutes: 15,
 			},
 		},
 	}

@@ -11,12 +11,58 @@ import (
 )
 
 type mockUserRepo struct {
-	findAllFn      func(ctx context.Context) ([]models.User, error)
-	findByIDFn     func(ctx context.Context, id string) (models.User, error)
-	createFn       func(ctx context.Context, u *models.User) error
-	updateFn       func(ctx context.Context, u *models.User, fields map[string]any) error
-	deleteFn       func(ctx context.Context, u *models.User) error
-	batchCreateFn  func(ctx context.Context, users []*models.User, workers int) []error
+	findAllFn     func(ctx context.Context) ([]models.User, error)
+	findByIDFn    func(ctx context.Context, id string) (models.User, error)
+	createFn      func(ctx context.Context, u *models.User) error
+	updateFn      func(ctx context.Context, u *models.User, fields map[string]any) error
+	deleteFn      func(ctx context.Context, u *models.User) error
+	batchCreateFn func(ctx context.Context, users []*models.User, workers int) []error
+}
+
+type mockAuthUserRepo struct {
+	findByEmailFn func(ctx context.Context, email string) (*models.User, error)
+	createFn      func(ctx context.Context, u *models.User) error
+	updateFn      func(ctx context.Context, u *models.User, fields map[string]any) error
+}
+
+func (m *mockAuthUserRepo) FindByEmail(ctx context.Context, email string) (*models.User, error) {
+	if m.findByEmailFn != nil {
+		return m.findByEmailFn(ctx, email)
+	}
+	return nil, nil
+}
+
+func (m *mockAuthUserRepo) Create(ctx context.Context, u *models.User) error {
+	if m.createFn != nil {
+		return m.createFn(ctx, u)
+	}
+	return nil
+}
+
+func (m *mockAuthUserRepo) Update(ctx context.Context, u *models.User, fields map[string]any) error {
+	if m.updateFn != nil {
+		return m.updateFn(ctx, u, fields)
+	}
+	return nil
+}
+
+type mockPasswordHistoryRepo struct {
+	createFn             func(ctx context.Context, h *models.PasswordHistory) error
+	findRecentByUserIDFn func(ctx context.Context, userID uint, limit int) ([]models.PasswordHistory, error)
+}
+
+func (m *mockPasswordHistoryRepo) Create(ctx context.Context, h *models.PasswordHistory) error {
+	if m.createFn != nil {
+		return m.createFn(ctx, h)
+	}
+	return nil
+}
+
+func (m *mockPasswordHistoryRepo) FindRecentByUserID(ctx context.Context, userID uint, limit int) ([]models.PasswordHistory, error) {
+	if m.findRecentByUserIDFn != nil {
+		return m.findRecentByUserIDFn(ctx, userID, limit)
+	}
+	return nil, nil
 }
 
 func (m *mockUserRepo) FindAll(ctx context.Context) ([]models.User, error) {

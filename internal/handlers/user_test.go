@@ -43,7 +43,7 @@ func TestUserHandler_GetAll(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			h := NewUserHandler(tt.repo, testLogger())
+			h := NewUserHandler(tt.repo, &mockPasswordHistoryRepo{}, 12, testLogger())
 			req := httptest.NewRequest(http.MethodGet, "/api/v1/users", nil)
 			w := httptest.NewRecorder()
 			h.GetAll(w, req)
@@ -83,7 +83,7 @@ func TestUserHandler_GetByID(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			h := NewUserHandler(tt.repo, testLogger())
+			h := NewUserHandler(tt.repo, &mockPasswordHistoryRepo{}, 12, testLogger())
 			testMux := http.NewServeMux()
 			testMux.HandleFunc("GET /api/v1/users/{id}", h.GetByID)
 			req := httptest.NewRequest(http.MethodGet, "/api/v1/users/"+tt.id, nil)
@@ -129,7 +129,7 @@ func TestUserHandler_Create(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			h := NewUserHandler(tt.repo, testLogger())
+			h := NewUserHandler(tt.repo, &mockPasswordHistoryRepo{}, 12, testLogger())
 			req := httptest.NewRequest(http.MethodPost, "/api/v1/users", strings.NewReader(tt.body))
 			req.Header.Set("Content-Type", "application/json")
 			w := httptest.NewRecorder()
@@ -241,7 +241,7 @@ func TestUserHandler_Update(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			h := NewUserHandler(tt.repo, testLogger())
+			h := NewUserHandler(tt.repo, &mockPasswordHistoryRepo{}, 12, testLogger())
 			testMux := http.NewServeMux()
 			testMux.HandleFunc("PATCH /api/v1/users/{id}", h.Update)
 			req := httptest.NewRequest(http.MethodPatch, "/api/v1/users/"+tt.id, strings.NewReader(tt.body))
@@ -294,7 +294,7 @@ func TestUserHandler_BatchCreate(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			repo := &mockUserRepo{batchCreateFn: tt.batchFn}
-			h := NewUserHandler(repo, testLogger())
+			h := NewUserHandler(repo, &mockPasswordHistoryRepo{}, 12, testLogger())
 
 			req := httptest.NewRequest(http.MethodPost, "/api/v1/users/batch", strings.NewReader(tt.body))
 			req.Header.Set("Content-Type", "application/json")
@@ -379,7 +379,7 @@ func TestUserHandler_Delete(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			h := NewUserHandler(tt.repo, testLogger())
+			h := NewUserHandler(tt.repo, &mockPasswordHistoryRepo{}, 12, testLogger())
 			testMux := http.NewServeMux()
 			testMux.HandleFunc("DELETE /api/v1/users/{id}", h.Delete)
 			req := httptest.NewRequest(http.MethodDelete, "/api/v1/users/"+tt.id, nil)
@@ -397,13 +397,18 @@ func TestUserHandler_ChangePassword(t *testing.T) {
 	require.NoError(t, err)
 	validHash := string(hash)
 
+	// Pre-hash the compliant new password to simulate it being in history
+	newPassHash, err := bcrypt.GenerateFromPassword([]byte("Str0ng!Pass#24"), bcrypt.MinCost)
+	require.NoError(t, err)
+
 	tests := []struct {
-		name       string
-		repo       UserRepository
-		id         string
-		body       string
-		userID     uint
-		wantStatus int
+		name        string
+		repo        UserRepository
+		historyRepo PasswordHistoryRepository
+		id          string
+		body        string
+		userID      uint
+		wantStatus  int
 	}{
 		{
 			name: "success",
@@ -413,10 +418,41 @@ func TestUserHandler_ChangePassword(t *testing.T) {
 				},
 				updateFn: func(_ context.Context, u *models.User, fields map[string]any) error { return nil },
 			},
+			historyRepo: &mockPasswordHistoryRepo{},
+			id:          "1",
+			body:        `{"current_password":"oldpass","new_password":"Str0ng!Pass#24"}`,
+			userID:      1,
+			wantStatus:  http.StatusNoContent,
+		},
+		{
+			name: "weak new password",
+			repo: &mockUserRepo{
+				findByIDFn: func(_ context.Context, id string) (models.User, error) {
+					return models.User{ID: 1, PasswordHash: validHash}, nil
+				},
+			},
+			historyRepo: &mockPasswordHistoryRepo{},
+			id:          "1",
+			body:        `{"current_password":"oldpass","new_password":"weak"}`,
+			userID:      1,
+			wantStatus:  http.StatusBadRequest,
+		},
+		{
+			name: "new password in history",
+			repo: &mockUserRepo{
+				findByIDFn: func(_ context.Context, id string) (models.User, error) {
+					return models.User{ID: 1, PasswordHash: validHash}, nil
+				},
+			},
+			historyRepo: &mockPasswordHistoryRepo{
+				findRecentByUserIDFn: func(_ context.Context, _ uint, _ int) ([]models.PasswordHistory, error) {
+					return []models.PasswordHistory{{UserID: 1, PasswordHash: string(newPassHash)}}, nil
+				},
+			},
 			id:         "1",
-			body:       `{"current_password":"oldpass","new_password":"newpass"}`,
+			body:       `{"current_password":"oldpass","new_password":"Str0ng!Pass#24"}`,
 			userID:     1,
-			wantStatus: http.StatusNoContent,
+			wantStatus: http.StatusBadRequest,
 		},
 		{
 			name: "wrong current password",
@@ -425,10 +461,11 @@ func TestUserHandler_ChangePassword(t *testing.T) {
 					return models.User{ID: 1, PasswordHash: validHash}, nil
 				},
 			},
-			id:         "1",
-			body:       `{"current_password":"wrong","new_password":"newpass"}`,
-			userID:     1,
-			wantStatus: http.StatusUnauthorized,
+			historyRepo: &mockPasswordHistoryRepo{},
+			id:          "1",
+			body:        `{"current_password":"wrong","new_password":"Str0ng!Pass#24"}`,
+			userID:      1,
+			wantStatus:  http.StatusUnauthorized,
 		},
 		{
 			name: "user not found",
@@ -437,10 +474,11 @@ func TestUserHandler_ChangePassword(t *testing.T) {
 					return models.User{}, errors.New("not found")
 				},
 			},
-			id:         "99",
-			body:       `{"current_password":"oldpass","new_password":"newpass"}`,
-			userID:     1,
-			wantStatus: http.StatusNotFound,
+			historyRepo: &mockPasswordHistoryRepo{},
+			id:          "99",
+			body:        `{"current_password":"oldpass","new_password":"Str0ng!Pass#24"}`,
+			userID:      1,
+			wantStatus:  http.StatusNotFound,
 		},
 		{
 			name: "forbidden",
@@ -449,10 +487,11 @@ func TestUserHandler_ChangePassword(t *testing.T) {
 					return models.User{ID: 2, PasswordHash: validHash}, nil
 				},
 			},
-			id:         "2",
-			body:       `{"current_password":"oldpass","new_password":"newpass"}`,
-			userID:     1,
-			wantStatus: http.StatusForbidden,
+			historyRepo: &mockPasswordHistoryRepo{},
+			id:          "2",
+			body:        `{"current_password":"oldpass","new_password":"Str0ng!Pass#24"}`,
+			userID:      1,
+			wantStatus:  http.StatusForbidden,
 		},
 		{
 			name: "missing fields",
@@ -461,10 +500,11 @@ func TestUserHandler_ChangePassword(t *testing.T) {
 					return models.User{ID: 1, PasswordHash: validHash}, nil
 				},
 			},
-			id:         "1",
-			body:       `{"current_password":"oldpass"}`,
-			userID:     1,
-			wantStatus: http.StatusBadRequest,
+			historyRepo: &mockPasswordHistoryRepo{},
+			id:          "1",
+			body:        `{"current_password":"oldpass"}`,
+			userID:      1,
+			wantStatus:  http.StatusBadRequest,
 		},
 		{
 			name: "bad JSON",
@@ -473,10 +513,11 @@ func TestUserHandler_ChangePassword(t *testing.T) {
 					return models.User{ID: 1, PasswordHash: validHash}, nil
 				},
 			},
-			id:         "1",
-			body:       `{invalid}`,
-			userID:     1,
-			wantStatus: http.StatusBadRequest,
+			historyRepo: &mockPasswordHistoryRepo{},
+			id:          "1",
+			body:        `{invalid}`,
+			userID:      1,
+			wantStatus:  http.StatusBadRequest,
 		},
 		{
 			name: "repo error",
@@ -488,16 +529,17 @@ func TestUserHandler_ChangePassword(t *testing.T) {
 					return errors.New("db error")
 				},
 			},
-			id:         "1",
-			body:       `{"current_password":"oldpass","new_password":"newpass"}`,
-			userID:     1,
-			wantStatus: http.StatusInternalServerError,
+			historyRepo: &mockPasswordHistoryRepo{},
+			id:          "1",
+			body:        `{"current_password":"oldpass","new_password":"Str0ng!Pass#24"}`,
+			userID:      1,
+			wantStatus:  http.StatusInternalServerError,
 		},
 	}
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			h := NewUserHandler(tt.repo, testLogger())
+			h := NewUserHandler(tt.repo, tt.historyRepo, 12, testLogger())
 			testMux := http.NewServeMux()
 			testMux.HandleFunc("PATCH /api/v1/users/{id}/password", h.ChangePassword)
 			req := httptest.NewRequest(http.MethodPatch, "/api/v1/users/"+tt.id+"/password", strings.NewReader(tt.body))
