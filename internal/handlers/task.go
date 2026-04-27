@@ -6,12 +6,14 @@ import (
 	"log/slog"
 	"net/http"
 
+	"github.com/ethien-salinas/go-gorm-rest-api/internal/middleware"
 	"github.com/ethien-salinas/go-gorm-rest-api/internal/models"
 )
 
 // TaskRepository defines the data-access operations required by [TaskHandler].
 type TaskRepository interface {
 	FindAll(ctx context.Context) ([]models.Task, error)
+	FindAllByUser(ctx context.Context, userID uint) ([]models.Task, error)
 	FindByID(ctx context.Context, id string) (models.Task, error)
 	Create(ctx context.Context, task *models.Task) error
 	Update(ctx context.Context, task *models.Task, fields map[string]any) error
@@ -40,7 +42,12 @@ func NewTaskHandler(repo TaskRepository, logger *slog.Logger) *TaskHandler {
 //	@Router			/api/v1/tasks [get]
 func (h *TaskHandler) GetAll(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("Content-Type", "application/json")
-	tasks, err := h.repo.FindAll(r.Context())
+	userID, ok := middleware.UserIDFromContext(r.Context())
+	if !ok {
+		writeError(w, http.StatusUnauthorized, "unauthorized")
+		return
+	}
+	tasks, err := h.repo.FindAllByUser(r.Context(), userID)
 	if err != nil {
 		h.logger.Error("handler: failed to get tasks", "error", err)
 		writeError(w, http.StatusInternalServerError, "error al obtener las tareas")
@@ -70,17 +77,22 @@ func (h *TaskHandler) GetByID(w http.ResponseWriter, r *http.Request) {
 		writeError(w, http.StatusNotFound, "tarea no encontrada")
 		return
 	}
+	userID, ok := middleware.UserIDFromContext(r.Context())
+	if !ok || task.UserID != userID {
+		writeError(w, http.StatusForbidden, "forbidden")
+		return
+	}
 	if err := json.NewEncoder(w).Encode(task); err != nil {
 		h.logger.Error("handler: failed to encode response", "error", err)
 	}
 }
 
 // CreateTaskRequest holds the fields accepted when creating a new task.
+// UserID is not accepted from the client; it is always set from the authenticated JWT.
 type CreateTaskRequest struct {
 	Title       string `json:"title"`
 	Description string `json:"description"`
 	Done        bool   `json:"done"`
-	UserID      uint   `json:"user_id"`
 }
 
 // updateTaskRequest holds the fields accepted when partially updating an existing task.
@@ -106,13 +118,18 @@ type updateTaskRequest struct {
 func (h *TaskHandler) Create(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("Content-Type", "application/json")
 	r.Body = http.MaxBytesReader(w, r.Body, 1<<20)
+	userID, ok := middleware.UserIDFromContext(r.Context())
+	if !ok {
+		writeError(w, http.StatusUnauthorized, "unauthorized")
+		return
+	}
 	var req CreateTaskRequest
 	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
 		h.logger.Warn("handler: failed to decode task", "error", err)
 		writeError(w, http.StatusBadRequest, "error al decodificar la tarea")
 		return
 	}
-	task := models.Task{Title: req.Title, Description: req.Description, Done: req.Done, UserID: req.UserID}
+	task := models.Task{Title: req.Title, Description: req.Description, Done: req.Done, UserID: userID}
 	if err := h.repo.Create(r.Context(), &task); err != nil {
 		h.logger.Error("handler: failed to create task", "error", err)
 		writeError(w, http.StatusInternalServerError, "error al crear la tarea")
@@ -148,6 +165,11 @@ func (h *TaskHandler) Update(w http.ResponseWriter, r *http.Request) {
 	if err != nil {
 		h.logger.Warn("handler: task not found for update", "id", id)
 		writeError(w, http.StatusNotFound, "tarea no encontrada")
+		return
+	}
+	userID, ok := middleware.UserIDFromContext(r.Context())
+	if !ok || task.UserID != userID {
+		writeError(w, http.StatusForbidden, "forbidden")
 		return
 	}
 	var req updateTaskRequest
@@ -202,6 +224,11 @@ func (h *TaskHandler) Delete(w http.ResponseWriter, r *http.Request) {
 	if err != nil {
 		h.logger.Warn("handler: task not found for delete", "id", id)
 		writeError(w, http.StatusNotFound, "tarea no encontrada")
+		return
+	}
+	userID, ok := middleware.UserIDFromContext(r.Context())
+	if !ok || task.UserID != userID {
+		writeError(w, http.StatusForbidden, "forbidden")
 		return
 	}
 	if err := h.repo.Delete(r.Context(), &task); err != nil {

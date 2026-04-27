@@ -145,41 +145,57 @@ func TestUserHandler_Update(t *testing.T) {
 		repo       UserRepository
 		id         string
 		body       string
+		userID     uint
 		wantStatus int
 	}{
 		{
 			name: "partial update one field",
 			repo: &mockUserRepo{
 				findByIDFn: func(_ context.Context, id string) (models.User, error) {
-					return models.User{FirstName: "old", LastName: "lee", Email: "old@example.com"}, nil
+					return models.User{ID: 1, FirstName: "old", LastName: "lee", Email: "old@example.com"}, nil
 				},
 				updateFn: func(_ context.Context, u *models.User, fields map[string]any) error { return nil },
 			},
 			id:         "1",
 			body:       `{"first_name":"new"}`,
+			userID:     1,
 			wantStatus: http.StatusOK,
 		},
 		{
 			name: "full update all fields",
 			repo: &mockUserRepo{
 				findByIDFn: func(_ context.Context, id string) (models.User, error) {
-					return models.User{FirstName: "old"}, nil
+					return models.User{ID: 1, FirstName: "old"}, nil
 				},
 				updateFn: func(_ context.Context, u *models.User, fields map[string]any) error { return nil },
 			},
 			id:         "1",
 			body:       `{"first_name":"new","last_name":"lee","email":"new@example.com"}`,
+			userID:     1,
 			wantStatus: http.StatusOK,
+		},
+		{
+			name: "forbidden",
+			repo: &mockUserRepo{
+				findByIDFn: func(_ context.Context, id string) (models.User, error) {
+					return models.User{ID: 2, FirstName: "other"}, nil
+				},
+			},
+			id:         "2",
+			body:       `{"first_name":"new"}`,
+			userID:     1,
+			wantStatus: http.StatusForbidden,
 		},
 		{
 			name: "empty body returns 400",
 			repo: &mockUserRepo{
 				findByIDFn: func(_ context.Context, id string) (models.User, error) {
-					return models.User{FirstName: "old"}, nil
+					return models.User{ID: 1, FirstName: "old"}, nil
 				},
 			},
 			id:         "1",
 			body:       `{}`,
+			userID:     1,
 			wantStatus: http.StatusBadRequest,
 		},
 		{
@@ -191,24 +207,26 @@ func TestUserHandler_Update(t *testing.T) {
 			},
 			id:         "99",
 			body:       `{"first_name":"new"}`,
+			userID:     1,
 			wantStatus: http.StatusNotFound,
 		},
 		{
 			name: "bad JSON",
 			repo: &mockUserRepo{
 				findByIDFn: func(_ context.Context, id string) (models.User, error) {
-					return models.User{FirstName: "old"}, nil
+					return models.User{ID: 1, FirstName: "old"}, nil
 				},
 			},
 			id:         "1",
 			body:       `{invalid}`,
+			userID:     1,
 			wantStatus: http.StatusBadRequest,
 		},
 		{
 			name: "repo error",
 			repo: &mockUserRepo{
 				findByIDFn: func(_ context.Context, id string) (models.User, error) {
-					return models.User{FirstName: "old"}, nil
+					return models.User{ID: 1, FirstName: "old"}, nil
 				},
 				updateFn: func(_ context.Context, u *models.User, fields map[string]any) error {
 					return errors.New("db error")
@@ -216,6 +234,7 @@ func TestUserHandler_Update(t *testing.T) {
 			},
 			id:         "1",
 			body:       `{"first_name":"new"}`,
+			userID:     1,
 			wantStatus: http.StatusInternalServerError,
 		},
 	}
@@ -227,6 +246,7 @@ func TestUserHandler_Update(t *testing.T) {
 			testMux.HandleFunc("PATCH /api/v1/users/{id}", h.Update)
 			req := httptest.NewRequest(http.MethodPatch, "/api/v1/users/"+tt.id, strings.NewReader(tt.body))
 			req.Header.Set("Content-Type", "application/json")
+			req = withUserID(req, tt.userID)
 			w := httptest.NewRecorder()
 			testMux.ServeHTTP(w, req)
 			assert.Equal(t, tt.wantStatus, w.Code)
@@ -304,17 +324,19 @@ func TestUserHandler_Delete(t *testing.T) {
 		name       string
 		repo       UserRepository
 		id         string
+		userID     uint
 		wantStatus int
 	}{
 		{
 			name: "success",
 			repo: &mockUserRepo{
 				findByIDFn: func(_ context.Context, id string) (models.User, error) {
-					return models.User{FirstName: "tommy"}, nil
+					return models.User{ID: 1, FirstName: "tommy"}, nil
 				},
 				deleteFn: func(_ context.Context, u *models.User) error { return nil },
 			},
 			id:         "1",
+			userID:     1,
 			wantStatus: http.StatusOK,
 		},
 		{
@@ -325,19 +347,32 @@ func TestUserHandler_Delete(t *testing.T) {
 				},
 			},
 			id:         "99",
+			userID:     1,
 			wantStatus: http.StatusNotFound,
+		},
+		{
+			name: "forbidden",
+			repo: &mockUserRepo{
+				findByIDFn: func(_ context.Context, id string) (models.User, error) {
+					return models.User{ID: 2, FirstName: "other"}, nil
+				},
+			},
+			id:         "2",
+			userID:     1,
+			wantStatus: http.StatusForbidden,
 		},
 		{
 			name: "repo error",
 			repo: &mockUserRepo{
 				findByIDFn: func(_ context.Context, id string) (models.User, error) {
-					return models.User{FirstName: "tommy"}, nil
+					return models.User{ID: 1, FirstName: "tommy"}, nil
 				},
 				deleteFn: func(_ context.Context, u *models.User) error {
 					return errors.New("db error")
 				},
 			},
 			id:         "1",
+			userID:     1,
 			wantStatus: http.StatusInternalServerError,
 		},
 	}
@@ -348,6 +383,7 @@ func TestUserHandler_Delete(t *testing.T) {
 			testMux := http.NewServeMux()
 			testMux.HandleFunc("DELETE /api/v1/users/{id}", h.Delete)
 			req := httptest.NewRequest(http.MethodDelete, "/api/v1/users/"+tt.id, nil)
+			req = withUserID(req, tt.userID)
 			w := httptest.NewRecorder()
 			testMux.ServeHTTP(w, req)
 			assert.Equal(t, tt.wantStatus, w.Code)
@@ -366,29 +402,32 @@ func TestUserHandler_ChangePassword(t *testing.T) {
 		repo       UserRepository
 		id         string
 		body       string
+		userID     uint
 		wantStatus int
 	}{
 		{
 			name: "success",
 			repo: &mockUserRepo{
 				findByIDFn: func(_ context.Context, id string) (models.User, error) {
-					return models.User{PasswordHash: validHash}, nil
+					return models.User{ID: 1, PasswordHash: validHash}, nil
 				},
 				updateFn: func(_ context.Context, u *models.User, fields map[string]any) error { return nil },
 			},
 			id:         "1",
 			body:       `{"current_password":"oldpass","new_password":"newpass"}`,
+			userID:     1,
 			wantStatus: http.StatusNoContent,
 		},
 		{
 			name: "wrong current password",
 			repo: &mockUserRepo{
 				findByIDFn: func(_ context.Context, id string) (models.User, error) {
-					return models.User{PasswordHash: validHash}, nil
+					return models.User{ID: 1, PasswordHash: validHash}, nil
 				},
 			},
 			id:         "1",
 			body:       `{"current_password":"wrong","new_password":"newpass"}`,
+			userID:     1,
 			wantStatus: http.StatusUnauthorized,
 		},
 		{
@@ -400,35 +439,50 @@ func TestUserHandler_ChangePassword(t *testing.T) {
 			},
 			id:         "99",
 			body:       `{"current_password":"oldpass","new_password":"newpass"}`,
+			userID:     1,
 			wantStatus: http.StatusNotFound,
+		},
+		{
+			name: "forbidden",
+			repo: &mockUserRepo{
+				findByIDFn: func(_ context.Context, id string) (models.User, error) {
+					return models.User{ID: 2, PasswordHash: validHash}, nil
+				},
+			},
+			id:         "2",
+			body:       `{"current_password":"oldpass","new_password":"newpass"}`,
+			userID:     1,
+			wantStatus: http.StatusForbidden,
 		},
 		{
 			name: "missing fields",
 			repo: &mockUserRepo{
 				findByIDFn: func(_ context.Context, id string) (models.User, error) {
-					return models.User{PasswordHash: validHash}, nil
+					return models.User{ID: 1, PasswordHash: validHash}, nil
 				},
 			},
 			id:         "1",
 			body:       `{"current_password":"oldpass"}`,
+			userID:     1,
 			wantStatus: http.StatusBadRequest,
 		},
 		{
 			name: "bad JSON",
 			repo: &mockUserRepo{
 				findByIDFn: func(_ context.Context, id string) (models.User, error) {
-					return models.User{PasswordHash: validHash}, nil
+					return models.User{ID: 1, PasswordHash: validHash}, nil
 				},
 			},
 			id:         "1",
 			body:       `{invalid}`,
+			userID:     1,
 			wantStatus: http.StatusBadRequest,
 		},
 		{
 			name: "repo error",
 			repo: &mockUserRepo{
 				findByIDFn: func(_ context.Context, id string) (models.User, error) {
-					return models.User{PasswordHash: validHash}, nil
+					return models.User{ID: 1, PasswordHash: validHash}, nil
 				},
 				updateFn: func(_ context.Context, u *models.User, fields map[string]any) error {
 					return errors.New("db error")
@@ -436,6 +490,7 @@ func TestUserHandler_ChangePassword(t *testing.T) {
 			},
 			id:         "1",
 			body:       `{"current_password":"oldpass","new_password":"newpass"}`,
+			userID:     1,
 			wantStatus: http.StatusInternalServerError,
 		},
 	}
@@ -447,6 +502,7 @@ func TestUserHandler_ChangePassword(t *testing.T) {
 			testMux.HandleFunc("PATCH /api/v1/users/{id}/password", h.ChangePassword)
 			req := httptest.NewRequest(http.MethodPatch, "/api/v1/users/"+tt.id+"/password", strings.NewReader(tt.body))
 			req.Header.Set("Content-Type", "application/json")
+			req = withUserID(req, tt.userID)
 			w := httptest.NewRecorder()
 			testMux.ServeHTTP(w, req)
 			assert.Equal(t, tt.wantStatus, w.Code)

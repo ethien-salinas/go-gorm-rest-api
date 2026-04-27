@@ -6,6 +6,7 @@ import (
 	"log/slog"
 	"net/http"
 
+	"github.com/ethien-salinas/go-gorm-rest-api/internal/middleware"
 	"github.com/ethien-salinas/go-gorm-rest-api/internal/models"
 	"golang.org/x/crypto/bcrypt"
 )
@@ -151,6 +152,11 @@ func (h *UserHandler) Update(w http.ResponseWriter, r *http.Request) {
 		writeError(w, http.StatusNotFound, "usuario no encontrado")
 		return
 	}
+	callerID, ok := middleware.UserIDFromContext(r.Context())
+	if !ok || user.ID != callerID {
+		writeError(w, http.StatusForbidden, "forbidden")
+		return
+	}
 	var req updateUserRequest
 	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
 		h.logger.Warn("handler: failed to decode user", "error", err)
@@ -205,6 +211,11 @@ func (h *UserHandler) Delete(w http.ResponseWriter, r *http.Request) {
 		writeError(w, http.StatusNotFound, "usuario no encontrado")
 		return
 	}
+	callerID, ok := middleware.UserIDFromContext(r.Context())
+	if !ok || user.ID != callerID {
+		writeError(w, http.StatusForbidden, "forbidden")
+		return
+	}
 	if err := h.repo.Delete(r.Context(), &user); err != nil {
 		h.logger.Error("handler: failed to delete user", "id", user.ID, "error", err)
 		writeError(w, http.StatusInternalServerError, "error al eliminar el usuario")
@@ -245,6 +256,11 @@ func (h *UserHandler) ChangePassword(w http.ResponseWriter, r *http.Request) {
 	if err != nil {
 		h.logger.Warn("handler: user not found for password change", "id", id)
 		writeError(w, http.StatusNotFound, "usuario no encontrado")
+		return
+	}
+	callerID, ok := middleware.UserIDFromContext(r.Context())
+	if !ok || user.ID != callerID {
+		writeError(w, http.StatusForbidden, "forbidden")
 		return
 	}
 

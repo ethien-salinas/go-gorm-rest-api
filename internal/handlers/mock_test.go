@@ -4,7 +4,9 @@ import (
 	"context"
 	"io"
 	"log/slog"
+	"net/http"
 
+	"github.com/ethien-salinas/go-gorm-rest-api/internal/middleware"
 	"github.com/ethien-salinas/go-gorm-rest-api/internal/models"
 )
 
@@ -48,15 +50,20 @@ func (m *mockUserRepo) BatchCreate(ctx context.Context, users []*models.User, wo
 }
 
 type mockTaskRepo struct {
-	findAllFn  func(ctx context.Context) ([]models.Task, error)
-	findByIDFn func(ctx context.Context, id string) (models.Task, error)
-	createFn   func(ctx context.Context, t *models.Task) error
-	updateFn   func(ctx context.Context, t *models.Task, fields map[string]any) error
-	deleteFn   func(ctx context.Context, t *models.Task) error
+	findAllFn       func(ctx context.Context) ([]models.Task, error)
+	findAllByUserFn func(ctx context.Context, userID uint) ([]models.Task, error)
+	findByIDFn      func(ctx context.Context, id string) (models.Task, error)
+	createFn        func(ctx context.Context, t *models.Task) error
+	updateFn        func(ctx context.Context, t *models.Task, fields map[string]any) error
+	deleteFn        func(ctx context.Context, t *models.Task) error
 }
 
 func (m *mockTaskRepo) FindAll(ctx context.Context) ([]models.Task, error) {
 	return m.findAllFn(ctx)
+}
+
+func (m *mockTaskRepo) FindAllByUser(ctx context.Context, userID uint) ([]models.Task, error) {
+	return m.findAllByUserFn(ctx, userID)
 }
 
 func (m *mockTaskRepo) FindByID(ctx context.Context, id string) (models.Task, error) {
@@ -76,6 +83,12 @@ func (m *mockTaskRepo) Update(ctx context.Context, t *models.Task, fields map[st
 
 func (m *mockTaskRepo) Delete(ctx context.Context, t *models.Task) error {
 	return m.deleteFn(ctx, t)
+}
+
+// withUserID returns a copy of r with the authenticated user ID injected into the context.
+func withUserID(r *http.Request, id uint) *http.Request {
+	ctx := context.WithValue(r.Context(), middleware.UserIDKey, float64(id))
+	return r.WithContext(ctx)
 }
 
 type mockPinger struct{ err error }

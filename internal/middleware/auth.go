@@ -58,6 +58,20 @@ func Auth(secret string) func(http.Handler) http.Handler {
 	}
 }
 
+// UserIDFromContext extracts the authenticated user ID injected by [Auth] middleware.
+// Returns the ID and true if found; returns 0 and false otherwise.
+func UserIDFromContext(ctx context.Context) (uint, bool) {
+	v := ctx.Value(UserIDKey)
+	if v == nil {
+		return 0, false
+	}
+	// jwt.MapClaims encodes numeric values as float64.
+	if f, ok := v.(float64); ok {
+		return uint(f), true
+	}
+	return 0, false
+}
+
 func writeUnauthorized(w http.ResponseWriter) {
 	w.Header().Set("Content-Type", "application/json")
 	w.WriteHeader(http.StatusUnauthorized)

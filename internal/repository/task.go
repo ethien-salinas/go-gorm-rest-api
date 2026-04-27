@@ -67,6 +67,16 @@ func (r *TaskRepository) Delete(ctx context.Context, task *models.Task) error {
 	return nil
 }
 
+// FindAllByUser returns all non-deleted tasks owned by userID with their owner preloaded.
+func (r *TaskRepository) FindAllByUser(ctx context.Context, userID uint) ([]models.Task, error) {
+	var tasks []models.Task
+	if err := r.db.WithContext(ctx).Preload("User").Where("user_id = ?", userID).Find(&tasks).Error; err != nil {
+		r.logger.Error("repository: failed to find tasks by user", "userID", userID, "error", err)
+		return nil, fmt.Errorf("taskRepository.FindAllByUser: %w", err)
+	}
+	return tasks, nil
+}
+
 // Count returns the total number of non-deleted task records.
 func (r *TaskRepository) Count(ctx context.Context) (int64, error) {
 	var count int64
